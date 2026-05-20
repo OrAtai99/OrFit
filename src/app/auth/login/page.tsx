@@ -4,15 +4,17 @@ import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 export default function LoginPage() {
   const [loading, setLoading] = useState<"google" | "email" | null>(null);
   const [error, setError] = useState("");
-  const supabase = createClient();
   const router = useRouter();
 
   async function signInWithGoogle() {
     setError("");
     setLoading("google");
+    const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -27,6 +29,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading("email");
+    const supabase = createClient();
 
     const form = e.currentTarget;
     const email = (form.elements.namedItem("email") as HTMLInputElement).value;
@@ -51,7 +54,6 @@ export default function LoginPage() {
           <p className="mt-2 text-muted">המאמן האישי שלך</p>
         </div>
 
-        {/* Google */}
         <button
           onClick={signInWithGoogle}
           disabled={loading !== null}
@@ -66,7 +68,6 @@ export default function LoginPage() {
           <div className="flex-1 h-px bg-[var(--border)]" />
         </div>
 
-        {/* Email */}
         <form onSubmit={signInWithEmail} className="space-y-3">
           <input
             name="email"
@@ -85,9 +86,7 @@ export default function LoginPage() {
             dir="ltr"
             className="w-full h-12 px-4 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] focus:outline-none focus:border-primary"
           />
-
           {error && <p className="text-sm text-danger text-center">{error}</p>}
-
           <button
             type="submit"
             disabled={loading !== null}

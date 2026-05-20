@@ -5,11 +5,13 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { S } from "@/lib/strings";
 
+export const dynamic = "force-dynamic";
+
 export default function SettingsPage() {
-  const supabase = createClient();
   const router = useRouter();
 
   async function signOut() {
+    const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/auth/login");
   }
@@ -18,7 +20,7 @@ export default function SettingsPage() {
     <PageWrapper title={S.settings.title}>
       <div className="space-y-4">
         <div className="card">
-          <p className="text-sm text-muted mb-3">בשלב 12 יתווספו הגדרות מלאות</p>
+          <p className="text-sm text-muted">בשלב 12 יתווספו הגדרות מלאות</p>
         </div>
         <button
           onClick={signOut}
