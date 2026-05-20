@@ -160,6 +160,32 @@ end $$;
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const POOLER_REGIONS = [
+  "eu-central-1",
+  "us-east-1",
+  "us-west-1",
+  "ap-southeast-1",
+  "ap-northeast-1",
+  "eu-west-1",
+  "ap-south-1",
+  "ca-central-1",
+];
+
+async function tryConnect(host: string, port: number, user: string, password: string) {
+  const { Client } = await import("pg");
+  const client = new Client({
+    host,
+    port,
+    database: "postgres",
+    user,
+    password,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 8000,
+  });
+  await client.connect();
+  return client;
+}
+
 export async function GET() {
   const dbPassword = process.env.SUPABASE_DB_PASSWORD;
 
@@ -170,22 +196,48 @@ export async function GET() {
     );
   }
 
+  const attempts: string[] = [];
+  let client = null;
+
+  // 1. Try direct connection first
   try {
-    // Dynamic import so pg is only loaded on the Node.js runtime
-    const { Client } = await import("pg");
+    client = await tryConnect(
+      "db.xrdeycakwdowzpuddwdl.supabase.co",
+      5432,
+      "postgres",
+      dbPassword
+    );
+    attempts.push("direct: OK");
+  } catch (e) {
+    attempts.push(`direct: ${String(e).slice(0, 60)}`);
+  }
 
-    const client = new Client({
-      host: "db.xrdeycakwdowzpuddwdl.supabase.co",
-      port: 5432,
-      database: "postgres",
-      user: "postgres",
-      password: dbPassword,
-      ssl: { rejectUnauthorized: false },
-      connectionTimeoutMillis: 15000,
-    });
+  // 2. Try each regional pooler
+  if (!client) {
+    for (const region of POOLER_REGIONS) {
+      try {
+        client = await tryConnect(
+          `aws-0-${region}.pooler.supabase.com`,
+          6543,
+          "postgres.xrdeycakwdowzpuddwdl",
+          dbPassword
+        );
+        attempts.push(`pooler ${region}:6543: OK`);
+        break;
+      } catch (e) {
+        attempts.push(`pooler ${region}: ${String(e).slice(0, 50)}`);
+      }
+    }
+  }
 
-    await client.connect();
+  if (!client) {
+    return NextResponse.json(
+      { error: "Could not connect to database", attempts },
+      { status: 500 }
+    );
+  }
 
+  try {
     // Check if already migrated
     const check = await client.query(
       "SELECT to_regclass('public.profile') AS tbl"
@@ -195,17 +247,20 @@ export async function GET() {
       return NextResponse.json({
         ok: true,
         message: "Already migrated — tables exist",
+        attempts,
       });
     }
 
     await client.query(MIGRATION_SQL);
     await client.end();
 
-    return NextResponse.json({ ok: true, message: "Migration successful — all tables created" });
+    return NextResponse.json({
+      ok: true,
+      message: "Migration successful — all tables created",
+      attempts,
+    });
   } catch (e) {
-    return NextResponse.json(
-      { error: String(e) },
-      { status: 500 }
-    );
+    await client.end().catch(() => {});
+    return NextResponse.json({ error: String(e), attempts }, { status: 500 });
   }
 }
