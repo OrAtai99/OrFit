@@ -15,14 +15,27 @@ export default function LoginPage() {
     setError("");
     setLoading("google");
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    if (error) {
-      setError("שגיאה: " + error.message);
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          skipBrowserRedirect: true,
+        },
+      });
+      if (error) {
+        setError("Supabase: " + error.message);
+        setLoading(null);
+        return;
+      }
+      if (!data?.url) {
+        setError("Supabase לא החזיר URL");
+        setLoading(null);
+        return;
+      }
+      window.location.href = data.url;
+    } catch (e) {
+      setError("חריגה: " + (e instanceof Error ? e.message : String(e)));
       setLoading(null);
     }
   }

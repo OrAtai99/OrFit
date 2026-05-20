@@ -1,9 +1,9 @@
-const CACHE = "orfit-v1";
+const CACHE = "orfit-v2";
 const OFFLINE_URL = "/auth/login";
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(["/", OFFLINE_URL, "/manifest.json"]))
+    caches.open(CACHE).then((c) => c.addAll(["/manifest.json"]))
   );
   self.skipWaiting();
 });
@@ -16,10 +16,13 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
+  const url = new URL(e.request.url);
   if (e.request.method !== "GET") return;
-  e.respondWith(
-    fetch(e.request).catch(() => caches.match(e.request).then((r) => r ?? caches.match(OFFLINE_URL)))
-  );
+  if (url.pathname.startsWith("/auth") || url.pathname.startsWith("/api")) return;
+  if (e.request.mode === "navigate") {
+    e.respondWith(fetch(e.request).catch(() => caches.match(OFFLINE_URL)));
+    return;
+  }
 });
 
 self.addEventListener("push", (e) => {
