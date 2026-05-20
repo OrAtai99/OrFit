@@ -157,55 +157,55 @@ do $$ begin
 end $$;
 `;
 
-export async function GET() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-  if (!url || !key) {
-    return NextResponse.json({ error: "Missing env vars" }, { status: 500 });
+export async function GET() {
+  const dbPassword = process.env.SUPABASE_DB_PASSWORD;
+
+  if (!dbPassword) {
+    return NextResponse.json(
+      { error: "SUPABASE_DB_PASSWORD not set in environment" },
+      { status: 500 }
+    );
   }
 
   try {
-    const res = await fetch(`${url}/rest/v1/rpc/exec_sql`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${key}`,
-        apikey: key,
-      },
-      body: JSON.stringify({ sql: MIGRATION_SQL }),
+    // Dynamic import so pg is only loaded on the Node.js runtime
+    const { Client } = await import("pg");
+
+    const client = new Client({
+      host: "db.xrdeycakwdowzpuddwdl.supabase.co",
+      port: 5432,
+      database: "postgres",
+      user: "postgres",
+      password: dbPassword,
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 15000,
     });
 
-    if (!res.ok) {
-      // exec_sql function doesn't exist yet - use pg_dump approach via management API
-      const mgmtRes = await fetch(
-        `https://api.supabase.com/v1/projects/xrdeycakwdowzpuddwdl/database/query`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${key}`,
-          },
-          body: JSON.stringify({ query: MIGRATION_SQL }),
-        }
-      );
+    await client.connect();
 
-      if (!mgmtRes.ok) {
-        const text = await mgmtRes.text();
-        return NextResponse.json(
-          {
-            error: "Could not run migration automatically",
-            detail: text,
-            instruction:
-              "Copy supabase/migrations/001_initial.sql content and paste in Supabase SQL Editor",
-          },
-          { status: 400 }
-        );
-      }
+    // Check if already migrated
+    const check = await client.query(
+      "SELECT to_regclass('public.profile') AS tbl"
+    );
+    if (check.rows[0]?.tbl) {
+      await client.end();
+      return NextResponse.json({
+        ok: true,
+        message: "Already migrated — tables exist",
+      });
     }
 
-    return NextResponse.json({ ok: true, message: "Migration successful" });
+    await client.query(MIGRATION_SQL);
+    await client.end();
+
+    return NextResponse.json({ ok: true, message: "Migration successful — all tables created" });
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    return NextResponse.json(
+      { error: String(e) },
+      { status: 500 }
+    );
   }
 }

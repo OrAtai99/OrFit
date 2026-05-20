@@ -16,10 +16,11 @@ if (!dbPassword) {
 }
 
 const client = new Client({
-  host: "db.xrdeycakwdowzpuddwdl.supabase.co",
+  // Use session pooler (IPv4) — direct DB host is IPv6-only on some networks
+  host: "aws-0-eu-central-1.pooler.supabase.com",
   port: 5432,
   database: "postgres",
-  user: "postgres",
+  user: "postgres.xrdeycakwdowzpuddwdl",
   password: dbPassword,
   ssl: { rejectUnauthorized: false },
 });
