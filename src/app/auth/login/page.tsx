@@ -19,8 +19,6 @@ export default function LoginPage() {
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
-        scopes:
-          "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly",
       },
     });
     if (error) {
