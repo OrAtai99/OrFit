@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@14 orfit-temp --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-git)",
+      "Bash(ls \"C:\\\\DEV\\\\orfit-temp\" && cp -r \"C:\\\\DEV\\\\orfit-temp\\\\.\" \"C:\\\\DEV\\\\OrFit\" --exclude=\".git\" 2>&1 || echo \"cp failed, trying xcopy\")",
+      "Bash(rsync -av --exclude='.git' --exclude='.claude' \"C:\\\\DEV\\\\orfit-temp/\" \"C:\\\\DEV\\\\OrFit/\")"
+    ]
+  }
+}
