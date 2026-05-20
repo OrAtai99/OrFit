@@ -171,6 +171,16 @@ const POOLER_REGIONS = [
   "ca-central-1",
 ];
 
+async function resolveIPv6(hostname: string): Promise<string | null> {
+  const dns = await import("dns/promises");
+  try {
+    const addrs = await dns.resolve6(hostname);
+    return addrs[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function tryConnect(host: string, port: number, user: string, password: string) {
   const { Client } = await import("pg");
   const client = new Client({
@@ -199,34 +209,47 @@ export async function GET() {
   const attempts: string[] = [];
   let client = null;
 
-  // 1. Try direct connection first
+  // 1. Try direct hostname
   try {
-    client = await tryConnect(
-      "db.xrdeycakwdowzpuddwdl.supabase.co",
-      5432,
-      "postgres",
-      dbPassword
-    );
-    attempts.push("direct: OK");
+    client = await tryConnect("db.xrdeycakwdowzpuddwdl.supabase.co", 5432, "postgres", dbPassword);
+    attempts.push("direct hostname: OK");
   } catch (e) {
-    attempts.push(`direct: ${String(e).slice(0, 60)}`);
+    attempts.push(`direct hostname: ${String(e).slice(0, 60)}`);
   }
 
-  // 2. Try each regional pooler
+  // 2. Try IPv6 address resolved via dns.resolve6() (bypasses getaddrinfo)
+  if (!client) {
+    const ipv6 = await resolveIPv6("db.xrdeycakwdowzpuddwdl.supabase.co");
+    attempts.push(`resolve6: ${ipv6 ?? "none"}`);
+    if (ipv6) {
+      try {
+        client = await tryConnect(ipv6, 5432, "postgres", dbPassword);
+        attempts.push("direct IPv6: OK");
+      } catch (e) {
+        attempts.push(`direct IPv6: ${String(e).slice(0, 60)}`);
+      }
+    }
+  }
+
+  // 3. Try each regional pooler
   if (!client) {
     for (const region of POOLER_REGIONS) {
-      try {
-        client = await tryConnect(
-          `aws-0-${region}.pooler.supabase.com`,
-          6543,
-          "postgres.xrdeycakwdowzpuddwdl",
-          dbPassword
-        );
-        attempts.push(`pooler ${region}:6543: OK`);
-        break;
-      } catch (e) {
-        attempts.push(`pooler ${region}: ${String(e).slice(0, 50)}`);
+      for (const port of [5432, 6543]) {
+        try {
+          client = await tryConnect(
+            `aws-0-${region}.pooler.supabase.com`,
+            port,
+            "postgres.xrdeycakwdowzpuddwdl",
+            dbPassword
+          );
+          attempts.push(`pooler ${region}:${port}: OK`);
+          break;
+        } catch (e) {
+          attempts.push(`pooler ${region}:${port}: ${String(e).slice(0, 40)}`);
+        }
+        if (client) break;
       }
+      if (client) break;
     }
   }
 
@@ -238,27 +261,16 @@ export async function GET() {
   }
 
   try {
-    // Check if already migrated
-    const check = await client.query(
-      "SELECT to_regclass('public.profile') AS tbl"
-    );
+    const check = await client.query("SELECT to_regclass('public.profile') AS tbl");
     if (check.rows[0]?.tbl) {
       await client.end();
-      return NextResponse.json({
-        ok: true,
-        message: "Already migrated — tables exist",
-        attempts,
-      });
+      return NextResponse.json({ ok: true, message: "Already migrated — tables exist", attempts });
     }
 
     await client.query(MIGRATION_SQL);
     await client.end();
 
-    return NextResponse.json({
-      ok: true,
-      message: "Migration successful — all tables created",
-      attempts,
-    });
+    return NextResponse.json({ ok: true, message: "Migration successful — all tables created", attempts });
   } catch (e) {
     await client.end().catch(() => {});
     return NextResponse.json({ error: String(e), attempts }, { status: 500 });
