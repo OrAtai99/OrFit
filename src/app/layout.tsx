@@ -37,6 +37,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="he" dir="rtl" className={heebo.variable}>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js'); }`,
+          }}
+        />
+      </head>
       <body className="font-sans antialiased min-h-screen bg-[var(--background)] text-[var(--foreground)]">
         {children}
       </body>
