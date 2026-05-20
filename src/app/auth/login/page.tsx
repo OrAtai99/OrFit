@@ -15,7 +15,7 @@ export default function LoginPage() {
     setError("");
     setLoading("google");
     const supabase = createClient();
-    await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
@@ -23,6 +23,10 @@ export default function LoginPage() {
           "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly",
       },
     });
+    if (error) {
+      setError("שגיאה: " + error.message);
+      setLoading(null);
+    }
   }
 
   async function signInWithEmail(e: React.FormEvent<HTMLFormElement>) {
@@ -62,6 +66,8 @@ export default function LoginPage() {
           {loading === "google" ? "מתחבר..." : <><GoogleIcon /> כניסה עם Google</>}
         </button>
 
+        {error && <p className="text-sm text-danger text-center px-3 py-2 bg-danger/10 rounded-lg">{error}</p>}
+
         <div className="flex items-center gap-3">
           <div className="flex-1 h-px bg-[var(--border)]" />
           <span className="text-xs text-muted">או</span>
@@ -86,7 +92,6 @@ export default function LoginPage() {
             dir="ltr"
             className="w-full h-12 px-4 rounded-xl border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] focus:outline-none focus:border-primary"
           />
-          {error && <p className="text-sm text-danger text-center">{error}</p>}
           <button
             type="submit"
             disabled={loading !== null}
