@@ -22,7 +22,7 @@ create table if not exists profile (
 
 create table if not exists daily_weight (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users not null,
+  user_id uuid not null references auth.users,
   date date not null,
   weight_kg numeric(5,2) not null,
   note text,
@@ -32,19 +32,20 @@ create table if not exists daily_weight (
 
 create table if not exists workouts (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users not null,
+  user_id uuid not null references auth.users,
   date date not null,
   type text not null check (type in ('push','pull','legs','upper','walk','rest')),
   duration_minutes int,
   max_heart_rate int,
   notes text,
   calendar_event_id text,
-  completed boolean default false
+  completed boolean default false,
+  unique(user_id, date)
 );
 
 create table if not exists workout_sets (
   id uuid primary key default gen_random_uuid(),
-  workout_id uuid references workouts not null on delete cascade,
+  workout_id uuid not null references workouts on delete cascade,
   exercise_name text not null,
   set_number int not null,
   weight_kg numeric(5,2),
@@ -55,7 +56,7 @@ create table if not exists workout_sets (
 
 create table if not exists nutrition_log (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users not null,
+  user_id uuid not null references auth.users,
   date date not null,
   calories int,
   protein_g numeric(5,1),
@@ -68,7 +69,7 @@ create table if not exists nutrition_log (
 
 create table if not exists weekly_summaries (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users not null,
+  user_id uuid not null references auth.users,
   week_start date not null,
   avg_weight numeric(5,2),
   avg_protein numeric(5,1),
@@ -78,62 +79,43 @@ create table if not exists weekly_summaries (
   unique(user_id, week_start)
 );
 
-create table if not exists alerts (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users not null,
-  type text not null check (type in ('red_rule_violation','missed_workout','protein_low','weight_stall')),
-  message text not null,
-  severity text default 'warning' check (severity in ('warning','critical')),
-  created_at timestamptz default now(),
-  acknowledged boolean default false
-);
-
 create table if not exists push_subscriptions (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users not null unique,
+  user_id uuid not null references auth.users unique,
   endpoint text not null,
   p256dh text not null,
   auth text not null,
   created_at timestamptz default now()
 );
 
--- Indexes
-create index if not exists idx_daily_weight_user_date on daily_weight(user_id, date desc);
-create index if not exists idx_workouts_user_date on workouts(user_id, date desc);
-create index if not exists idx_nutrition_user_date on nutrition_log(user_id, date desc);
-create index if not exists idx_alerts_user_ack on alerts(user_id, acknowledged);
-
--- RLS
 alter table profile enable row level security;
 alter table daily_weight enable row level security;
 alter table workouts enable row level security;
 alter table workout_sets enable row level security;
 alter table nutrition_log enable row level security;
 alter table weekly_summaries enable row level security;
-alter table alerts enable row level security;
 alter table push_subscriptions enable row level security;
 
--- RLS policies
-create policy "own data" on profile for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "own data" on daily_weight for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "own data" on workouts for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "own data" on workout_sets for all
-  using (workout_id in (select id from workouts where user_id = auth.uid()))
-  with check (workout_id in (select id from workouts where user_id = auth.uid()));
-create policy "own data" on nutrition_log for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "own data" on weekly_summaries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "own data" on alerts for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy "own data" on push_subscriptions for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
--- Auto-update updated_at on profile
-create or replace function update_updated_at()
-returns trigger as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$ language plpgsql;
-
-create trigger profile_updated_at
-  before update on profile
-  for each row execute function update_updated_at();
+do $$ begin
+  if not exists (select 1 from pg_policies where tablename = 'profile' and policyname = 'own data') then
+    create policy "own data" on profile for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'daily_weight' and policyname = 'own data') then
+    create policy "own data" on daily_weight for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'workouts' and policyname = 'own data') then
+    create policy "own data" on workouts for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'workout_sets' and policyname = 'own data') then
+    create policy "own data" on workout_sets for all using (workout_id in (select id from workouts where user_id = auth.uid()));
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'nutrition_log' and policyname = 'own data') then
+    create policy "own data" on nutrition_log for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'weekly_summaries' and policyname = 'own data') then
+    create policy "own data" on weekly_summaries for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'push_subscriptions' and policyname = 'own data') then
+    create policy "own data" on push_subscriptions for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
+end $$;
