@@ -1,0 +1,39 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Home, Scale, Dumbbell, Apple, BarChart2 } from "lucide-react";
+
+const NAV_ITEMS = [
+  { href: "/", label: "בית", icon: Home },
+  { href: "/weight", label: "שקילה", icon: Scale },
+  { href: "/workouts", label: "אימונים", icon: Dumbbell },
+  { href: "/nutrition", label: "תזונה", icon: Apple },
+  { href: "/stats", label: "סטטיסטיקות", icon: BarChart2 },
+];
+
+export default function BottomNav() {
+  const pathname = usePathname();
+
+  return (
+    <nav className="fixed bottom-0 right-0 left-0 z-50 bg-[var(--card)] border-t border-[var(--border)] safe-bottom">
+      <div className="flex items-center justify-around h-16">
+        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+          const active = pathname === href;
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={`flex flex-col items-center gap-0.5 flex-1 py-2 transition-colors ${
+                active ? "text-primary" : "text-muted"
+              }`}
+            >
+              <Icon size={22} strokeWidth={active ? 2.5 : 1.8} />
+              <span className="text-[10px] font-medium">{label}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
