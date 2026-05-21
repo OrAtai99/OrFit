@@ -4,12 +4,8 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Public paths — skip auth check entirely
-  if (
-    pathname.startsWith("/auth") ||
-    pathname.startsWith("/api/setup-db") ||
-    pathname.startsWith("/api/push")
-  ) {
+  // Public paths — skip auth check entirely (API routes guard themselves)
+  if (pathname.startsWith("/auth") || pathname.startsWith("/api")) {
     return NextResponse.next();
   }
 

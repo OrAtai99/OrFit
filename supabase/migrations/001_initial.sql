@@ -3,7 +3,7 @@
 
 create table if not exists profile (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users not null unique,
+  user_id uuid references auth.users not null unique default auth.uid(),
   name text not null default 'אורן',
   age int default 26,
   height_cm int default 180,
@@ -22,7 +22,7 @@ create table if not exists profile (
 
 create table if not exists daily_weight (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users,
+  user_id uuid not null references auth.users default auth.uid(),
   date date not null,
   weight_kg numeric(5,2) not null,
   note text,
@@ -32,7 +32,7 @@ create table if not exists daily_weight (
 
 create table if not exists workouts (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users,
+  user_id uuid not null references auth.users default auth.uid(),
   date date not null,
   type text not null check (type in ('push','pull','legs','upper','walk','rest')),
   duration_minutes int,
@@ -56,7 +56,7 @@ create table if not exists workout_sets (
 
 create table if not exists nutrition_log (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users,
+  user_id uuid not null references auth.users default auth.uid(),
   date date not null,
   calories int,
   protein_g numeric(5,1),
@@ -69,7 +69,7 @@ create table if not exists nutrition_log (
 
 create table if not exists weekly_summaries (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users,
+  user_id uuid not null references auth.users default auth.uid(),
   week_start date not null,
   avg_weight numeric(5,2),
   avg_protein numeric(5,1),
@@ -81,7 +81,7 @@ create table if not exists weekly_summaries (
 
 create table if not exists push_subscriptions (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users unique,
+  user_id uuid not null references auth.users default auth.uid() unique,
   endpoint text not null,
   p256dh text not null,
   auth text not null,

@@ -23,9 +23,9 @@ export default function DashboardPage() {
   useEffect(() => {
     const supabase = createClient();
     Promise.all([
-      supabase.from("daily_weight").select("*").order("date", { ascending: false }).limit(1).single(),
-      supabase.from("nutrition_log").select("*").eq("date", todayISO()).single(),
-      supabase.from("workouts").select("*").eq("date", todayISO()).single(),
+      supabase.from("daily_weight").select("*").order("date", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("nutrition_log").select("*").eq("date", todayISO()).maybeSingle(),
+      supabase.from("workouts").select("*").eq("date", todayISO()).maybeSingle(),
     ]).then(([w, n, wo]) => {
       if (w.data) setLatestWeight(w.data);
       if (n.data) setTodayNutrition(n.data);

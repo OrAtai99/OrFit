@@ -54,7 +54,7 @@ export default function NutritionPage() {
       .from("nutrition_log")
       .select("*")
       .eq("date", todayISO())
-      .single();
+      .maybeSingle();
     if (data) {
       setEntry(data);
       setCalories(String(data.calories ?? ""));

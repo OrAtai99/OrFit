@@ -31,7 +31,7 @@ export default function SettingsPage() {
       .from("profile")
       .select("*")
       .eq("user_id", user.user.id)
-      .single();
+      .maybeSingle();
 
     if (data) {
       setProfile(data);
@@ -97,11 +97,14 @@ export default function SettingsPage() {
       const key = sub.getKey("p256dh");
       const auth = sub.getKey("auth");
       if (key && auth) {
-        await supabase.from("push_subscriptions").upsert({
-          endpoint: sub.endpoint,
-          p256dh: btoa(String.fromCharCode(...Array.from(new Uint8Array(key)))),
-          auth: btoa(String.fromCharCode(...Array.from(new Uint8Array(auth)))),
-        });
+        await supabase.from("push_subscriptions").upsert(
+          {
+            endpoint: sub.endpoint,
+            p256dh: btoa(String.fromCharCode(...Array.from(new Uint8Array(key)))),
+            auth: btoa(String.fromCharCode(...Array.from(new Uint8Array(auth)))),
+          },
+          { onConflict: "user_id" }
+        );
       }
     }
   }
