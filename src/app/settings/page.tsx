@@ -4,16 +4,18 @@ import PageWrapper from "@/components/layout/PageWrapper";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { S } from "@/lib/strings";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import type { Profile } from "@/types";
 import { Card, Button, useToast } from "@/components/ui";
 import { Bell, BellOff, BellRing, LogOut, User, Target, Calendar, CheckCircle2 } from "lucide-react";
+import { useProfile } from "@/contexts/ProfileContext";
 
 export const dynamic = "force-dynamic";
 
 export default function SettingsPage() {
   const router = useRouter();
   const toast = useToast();
+  const { profile: ctxProfile, updateProfile } = useProfile();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [name, setName] = useState("אורן");
   const [age, setAge] = useState("26");
@@ -50,75 +52,70 @@ export default function SettingsPage() {
     if (error) toast.show("שגיאה: " + error.message, "error");
   }
 
-  const load = useCallback(async () => {
-    const supabase = createClient();
-    const { data: user } = await supabase.auth.getUser();
-    if (!user.user) return;
-
-    const { data } = await supabase
-      .from("profile")
-      .select("*")
-      .eq("user_id", user.user.id)
-      .maybeSingle();
-
-    if (data) {
-      setProfile(data);
-      setName(data.name ?? "אורן");
-      setAge(String(data.age ?? 26));
-      setHeightCm(String(data.height_cm ?? 180));
-      setTargetWeight(String(data.target_weight_kg ?? 87));
-      setTargetDate(data.target_date ?? "2026-07-31");
-      setDailyCalories(String(data.daily_calories ?? 2092));
-      setDailyProtein(String(data.daily_protein_g ?? 190));
-      setDailyCarbs(String(data.daily_carbs_g ?? 180));
-      setDailyFat(String(data.daily_fat_g ?? 68));
-      setHypertensionMeds(data.hypertension_meds ?? true);
-      setMaxHR(String(data.max_heart_rate ?? 145));
-    }
-  }, []);
+  // Hydrate form fields from the shared ProfileContext — only the first time
+  // a profile becomes available, so user edits aren't overwritten by realtime.
+  useEffect(() => {
+    if (!ctxProfile || profile) return;
+    setProfile(ctxProfile);
+    setName(ctxProfile.name ?? "אורן");
+    setAge(String(ctxProfile.age ?? 26));
+    setHeightCm(String(ctxProfile.height_cm ?? 180));
+    setTargetWeight(String(ctxProfile.target_weight_kg ?? 87));
+    setTargetDate(ctxProfile.target_date ?? "2026-07-31");
+    setDailyCalories(String(ctxProfile.daily_calories ?? 2092));
+    setDailyProtein(String(ctxProfile.daily_protein_g ?? 190));
+    setDailyCarbs(String(ctxProfile.daily_carbs_g ?? 180));
+    setDailyFat(String(ctxProfile.daily_fat_g ?? 68));
+    setHypertensionMeds(ctxProfile.hypertension_meds ?? true);
+    setMaxHR(String(ctxProfile.max_heart_rate ?? 145));
+  }, [ctxProfile, profile]);
 
   useEffect(() => {
-    load();
     if (typeof window !== "undefined" && "Notification" in window) {
       setNotifStatus(Notification.permission as "default" | "granted" | "denied");
     }
-  }, [load]);
+  }, []);
+
 
   async function saveProfile() {
-    setSaving(true);
-    const supabase = createClient();
-    const { data: user } = await supabase.auth.getUser();
-    if (!user.user) {
-      setSaving(false);
-      toast.show(S.errors.auth, "error");
+    // Soft validation up front so we never persist garbage.
+    const ageNum = parseInt(age);
+    const heightNum = parseInt(heightCm);
+    const tw = parseFloat(targetWeight);
+    const cal = parseInt(dailyCalories);
+    const p = parseInt(dailyProtein);
+    const hr = parseInt(maxHR);
+    if (
+      isNaN(ageNum) || ageNum < 15 || ageNum > 100 ||
+      isNaN(heightNum) || heightNum < 100 || heightNum > 250 ||
+      isNaN(tw) || tw < 30 || tw > 300 ||
+      isNaN(cal) || cal < 1200 || cal > 5000 ||
+      isNaN(p) || p < 30 || p > 400 ||
+      isNaN(hr) || hr < 100 || hr > 220
+    ) {
+      toast.show("ערך לא חוקי באחד השדות", "error");
       return;
     }
 
-    const payload = {
-      user_id: user.user.id,
+    setSaving(true);
+    const { error } = await updateProfile({
       name,
-      age: parseInt(age),
-      height_cm: parseInt(heightCm),
-      target_weight_kg: parseFloat(targetWeight),
+      age: ageNum,
+      height_cm: heightNum,
+      target_weight_kg: tw,
       target_date: targetDate,
-      daily_calories: parseInt(dailyCalories),
-      daily_protein_g: parseInt(dailyProtein),
+      daily_calories: cal,
+      daily_protein_g: p,
       daily_carbs_g: parseInt(dailyCarbs),
       daily_fat_g: parseInt(dailyFat),
       hypertension_meds: hypertensionMeds,
-      max_heart_rate: parseInt(maxHR),
-    };
-
-    const { error } = profile
-      ? await supabase.from("profile").update(payload).eq("id", profile.id)
-      : await supabase.from("profile").insert(payload);
-
+      max_heart_rate: hr,
+    });
     setSaving(false);
     if (error) {
-      toast.show(S.settings.errorSave, "error");
+      toast.show("שגיאה: " + error, "error");
     } else {
       toast.show(S.settings.saved, "success");
-      await load();
     }
   }
 

@@ -25,12 +25,12 @@ import {
 import { Card, Button, Input, EmptyState, useToast } from "@/components/ui";
 import { Scale, TrendingDown, Target, CalendarClock } from "lucide-react";
 import { getUserId } from "@/lib/use-user";
+import { useProfileValues } from "@/contexts/ProfileContext";
 
 export const dynamic = "force-dynamic";
 
-const TARGET = 87;
-
 export default function WeightPage() {
+  const { targetWeight: TARGET } = useProfileValues();
   const toast = useToast();
   const [entries, setEntries] = useState<DailyWeight[]>([]);
   const [todayEntry, setTodayEntry] = useState<DailyWeight | null>(null);

@@ -14,10 +14,9 @@ import { QuickAddFoods } from "@/components/nutrition/QuickAddFoods";
 import { FoodSearchModal } from "@/components/nutrition/FoodSearchModal";
 import { MealSections } from "@/components/nutrition/MealSections";
 import type { FoodEntry, MealType } from "@/types";
+import { useProfileValues } from "@/contexts/ProfileContext";
 
 export const dynamic = "force-dynamic";
-
-const TARGETS = S.nutrition.targets;
 
 type MacroBarProps = {
   label: string;
@@ -79,6 +78,13 @@ function MacroBar({ label, current, goal, unit, color, icon: Icon }: MacroBarPro
 
 export default function NutritionPage() {
   const toast = useToast();
+  const { dailyCalories, dailyProtein, dailyCarbs, dailyFat } = useProfileValues();
+  const TARGETS = {
+    calories: dailyCalories,
+    protein: dailyProtein,
+    carbs: dailyCarbs,
+    fat: dailyFat,
+  };
   const [, setEntry] = useState<NutritionLog | null>(null);
   const [calories, setCalories] = useState("");
   const [protein, setProtein] = useState("");
@@ -228,7 +234,8 @@ export default function NutritionPage() {
 
   const isWorkoutDay = isWorkoutDayByDate(todayISO());
   const proteinVal = parseFloat(protein) || 0;
-  const proteinWarning = isWorkoutDay && proteinVal > 0 && proteinVal < 150;
+  const proteinFloor = Math.max(150, Math.round(dailyProtein * 0.8));
+  const proteinWarning = isWorkoutDay && proteinVal > 0 && proteinVal < proteinFloor;
 
   const liveMacros = {
     calories: parseInt(calories) || 0,

@@ -19,6 +19,7 @@ import { getTodaySchedule, getNextWorkout } from "@/lib/exercises";
 import { useState, useEffect } from "react";
 import type { DailyWeight, NutritionLog, Workout } from "@/types";
 import { Card, Badge, AnimatedNumber } from "@/components/ui";
+import { useProfileValues } from "@/contexts/ProfileContext";
 import { CalendarWidget } from "@/components/dashboard/CalendarWidget";
 import { TodayExercisesPreview } from "@/components/dashboard/TodayExercisesPreview";
 import { StreakCards } from "@/components/dashboard/StreakCards";
@@ -43,10 +44,6 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-const TARGET = 87;
-const START_WEIGHT = 96.8;
-const TARGET_DATE = "2026-07-31";
-
 const TYPE_LABELS = S.workouts.types;
 const TYPE_ICONS: Record<string, LucideIcon> = {
   push: Dumbbell,
@@ -58,6 +55,7 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
 };
 
 export default function DashboardPage() {
+  const { targetWeight, targetDate, dailyProtein } = useProfileValues();
   const [allWeights, setAllWeights] = useState<DailyWeight[]>([]);
   const [todayNutrition, setTodayNutrition] = useState<NutritionLog | null>(null);
   const [todayWorkout, setTodayWorkout] = useState<Workout | null>(null);
@@ -84,20 +82,27 @@ export default function DashboardPage() {
   }, []);
 
   const latestWeight = allWeights[0] ?? null;
+  // Use the user's earliest recorded weight as their "start" — this matches
+  // their reality, not the literal 96.8 baked in at build time.
+  const startWeight = allWeights.length > 0
+    ? allWeights[allWeights.length - 1].weight_kg
+    : (latestWeight?.weight_kg ?? targetWeight);
   const isNewUser = loaded && allWeights.length === 0 && !todayNutrition && !todayWorkout;
   const noWeightToday = loaded && latestWeight !== null && latestWeight.date !== todayISO();
   const todaySchedule = getTodaySchedule();
   const nextWorkout = getNextWorkout();
-  const daysLeft = daysRemaining(TARGET_DATE);
-  const progress = latestWeight ? progressPercent(START_WEIGHT, latestWeight.weight_kg, TARGET) : 0;
+  const daysLeft = daysRemaining(targetDate);
+  const progress = latestWeight ? progressPercent(startWeight, latestWeight.weight_kg, targetWeight) : 0;
   const isWorkoutDay = isWorkoutDayByDate(todayISO());
   const protein = todayNutrition?.protein_g ?? 0;
   const calories = todayNutrition?.calories ?? 0;
-  const proteinWarning = isWorkoutDay && loaded && todayNutrition !== null && protein > 0 && protein < 150;
+  const proteinTarget = dailyProtein;
+  const proteinFloor = Math.max(150, Math.round(proteinTarget * 0.8));
+  const proteinWarning = isWorkoutDay && loaded && todayNutrition !== null && protein > 0 && protein < proteinFloor;
   const streak = weighingStreak(allWeights.map((w) => w.date));
   const proteinStreak = streakOf(
     allNutrition.map((n) => ({ date: n.date, value: n.protein_g })),
-    150
+    proteinTarget
   );
   const stepsStreak = streakOf(
     allNutrition.map((n) => ({ date: n.date, value: n.steps })),
@@ -105,7 +110,7 @@ export default function DashboardPage() {
   );
   const workoutStreakCount = calcWorkoutStreak(allWorkouts);
   const weekDelta = weeklyWeightDelta(allWeights);
-  const etaDays = predictedDaysToGoal(allWeights, TARGET);
+  const etaDays = predictedDaysToGoal(allWeights, targetWeight);
   const todayName = dayNameHe(todayISO());
   const TodayIcon = TYPE_ICONS[todaySchedule.type];
   const insight = buildInsight({ progress, weekDelta, streak, isWorkoutDay, protein, proteinWarning });
@@ -116,8 +121,8 @@ export default function DashboardPage() {
         <HeroProgress
           progress={progress}
           latest={latestWeight?.weight_kg ?? null}
-          target={TARGET}
-          start={START_WEIGHT}
+          target={targetWeight}
+          start={startWeight}
           daysLeft={daysLeft}
           todayName={todayName}
         />

@@ -61,7 +61,8 @@ export function dayNameHe(dateStr: string): string {
 }
 
 export function todayISO(): string {
-  return new Date().toISOString().split("T")[0];
+  // Date in Israel timezone (YYYY-MM-DD). Prevents "logged tomorrow at 23:30" bug.
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });
 }
 
 export function isWorkoutDayByDate(dateStr: string): boolean {
