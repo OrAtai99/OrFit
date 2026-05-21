@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Scale, Dumbbell, Apple, BarChart2 } from "lucide-react";
+import { Home, Scale, Dumbbell, Apple, Sparkles } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/", label: "בית", icon: Home },
   { href: "/weight", label: "שקילה", icon: Scale },
   { href: "/workouts", label: "אימונים", icon: Dumbbell },
   { href: "/nutrition", label: "תזונה", icon: Apple },
-  { href: "/stats", label: "סטטיסטיקות", icon: BarChart2 },
+  { href: "/coach", label: "מאמן AI", icon: Sparkles },
 ];
 
 export default function BottomNav() {

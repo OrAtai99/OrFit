@@ -16,6 +16,9 @@ import {
   BarChart,
   Bar,
 } from "recharts";
+import { Card, EmptyState, Button } from "@/components/ui";
+import { BarChart2, Scale, Apple } from "lucide-react";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -75,9 +78,27 @@ export default function StatsPage() {
     return (
       <PageWrapper title={S.stats.title}>
         <RangeSelector range={range} setRange={setRange} />
-        <div className="card text-center py-12 mt-4">
-          <p className="text-muted">{S.stats.noData}</p>
-        </div>
+        <Card className="mt-4">
+          <EmptyState
+            icon={BarChart2}
+            title="עדיין אין מספיק נתונים"
+            description="כדי לראות מגמות, רשום משקל ותזונה לפחות 3-4 ימים. הגרפים יופיעו אוטומטית כשיש מספיק נתונים."
+            action={
+              <div className="flex gap-2">
+                <Link href="/weight">
+                  <Button variant="primary" size="sm">
+                    <Scale size={14} /> שקילה
+                  </Button>
+                </Link>
+                <Link href="/nutrition">
+                  <Button variant="secondary" size="sm">
+                    <Apple size={14} /> תזונה
+                  </Button>
+                </Link>
+              </div>
+            }
+          />
+        </Card>
       </PageWrapper>
     );
   }

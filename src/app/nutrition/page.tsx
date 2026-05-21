@@ -121,6 +121,14 @@ export default function NutritionPage() {
   const proteinVal = parseFloat(protein) || 0;
   const proteinWarning = isWorkoutDay && proteinVal > 0 && proteinVal < 150;
 
+  const liveMacros = {
+    calories: parseInt(calories) || 0,
+    protein: parseFloat(protein) || 0,
+    carbs: parseFloat(carbs) || 0,
+    fat: parseFloat(fat) || 0,
+    steps: parseInt(steps) || 0,
+  };
+
   function handleQuickAdd(delta: { calories: number; protein: number; carbs: number; fat: number }) {
     const curCal = parseInt(calories) || 0;
     const curProtein = parseFloat(protein) || 0;
@@ -151,53 +159,49 @@ export default function NutritionPage() {
           </Card>
         )}
 
-        {entry && (
-          <Card className="space-y-4">
-            <p className="text-sm font-medium">{S.nutrition.today}</p>
-            <MacroBar
-              icon={Flame}
-              label={S.nutrition.calories}
-              current={entry.calories ?? 0}
-              goal={TARGETS.calories}
-              unit={S.common.kcal}
-              color="#1F4E78"
-            />
-            <MacroBar
-              icon={Beef}
-              label={S.nutrition.protein}
-              current={entry.protein_g ?? 0}
-              goal={TARGETS.protein}
-              unit={S.common.g}
-              color="#047857"
-            />
-            <MacroBar
-              icon={Wheat}
-              label={S.nutrition.carbs}
-              current={entry.carbs_g ?? 0}
-              goal={TARGETS.carbs}
-              unit={S.common.g}
-              color="#2563a8"
-            />
-            <MacroBar
-              icon={Droplet}
-              label={S.nutrition.fat}
-              current={entry.fat_g ?? 0}
-              goal={TARGETS.fat}
-              unit={S.common.g}
-              color="#B91C1C"
-            />
-            {entry.steps !== null && (
-              <MacroBar
-                icon={Footprints}
-                label={S.nutrition.steps}
-                current={entry.steps}
-                goal={10000}
-                unit={S.common.steps}
-                color="#7C3AED"
-              />
-            )}
-          </Card>
-        )}
+        <Card className="space-y-4">
+          <p className="text-sm font-medium">{S.nutrition.today}</p>
+          <MacroBar
+            icon={Flame}
+            label={S.nutrition.calories}
+            current={liveMacros.calories}
+            goal={TARGETS.calories}
+            unit={S.common.kcal}
+            color="#1F4E78"
+          />
+          <MacroBar
+            icon={Beef}
+            label={S.nutrition.protein}
+            current={liveMacros.protein}
+            goal={TARGETS.protein}
+            unit={S.common.g}
+            color="#047857"
+          />
+          <MacroBar
+            icon={Wheat}
+            label={S.nutrition.carbs}
+            current={liveMacros.carbs}
+            goal={TARGETS.carbs}
+            unit={S.common.g}
+            color="#2563a8"
+          />
+          <MacroBar
+            icon={Droplet}
+            label={S.nutrition.fat}
+            current={liveMacros.fat}
+            goal={TARGETS.fat}
+            unit={S.common.g}
+            color="#B91C1C"
+          />
+          <MacroBar
+            icon={Footprints}
+            label={S.nutrition.steps}
+            current={liveMacros.steps}
+            goal={10000}
+            unit={S.common.steps}
+            color="#7C3AED"
+          />
+        </Card>
 
         <QuickAddFoods onAdd={handleQuickAdd} />
 

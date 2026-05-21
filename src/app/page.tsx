@@ -18,6 +18,7 @@ import { useState, useEffect } from "react";
 import type { DailyWeight, NutritionLog, Workout } from "@/types";
 import { Card, Badge, AnimatedNumber } from "@/components/ui";
 import { CalendarWidget } from "@/components/dashboard/CalendarWidget";
+import { TodayExercisesPreview } from "@/components/dashboard/TodayExercisesPreview";
 import {
   Flame,
   TrendingDown,
@@ -32,6 +33,7 @@ import {
   Bed,
   Footprints,
   Sparkles,
+  Rocket,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
@@ -73,6 +75,8 @@ export default function DashboardPage() {
   }, []);
 
   const latestWeight = allWeights[0] ?? null;
+  const isNewUser = loaded && allWeights.length === 0 && !todayNutrition && !todayWorkout;
+  const noWeightToday = loaded && latestWeight !== null && latestWeight.date !== todayISO();
   const todaySchedule = getTodaySchedule();
   const nextWorkout = getNextWorkout();
   const daysLeft = daysRemaining(TARGET_DATE);
@@ -99,6 +103,48 @@ export default function DashboardPage() {
           daysLeft={daysLeft}
           todayName={todayName}
         />
+
+        {isNewUser && (
+          <Card className="border-primary/40 bg-gradient-to-br from-primary/10 to-primary/5">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                <Rocket size={20} className="text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold mb-1">בואו נתחיל</p>
+                <p className="text-xs text-muted mb-3">
+                  כדי שאוכל לעקוב אחר ההתקדמות, התחל בשלושה צעדים פשוטים:
+                </p>
+                <div className="space-y-1.5">
+                  <Link href="/weight" className="flex items-center gap-2 text-sm hover:text-primary">
+                    <Scale size={14} className="text-primary" /> 1. שקול את עצמך
+                  </Link>
+                  <Link href="/nutrition" className="flex items-center gap-2 text-sm hover:text-primary">
+                    <Apple size={14} className="text-primary" /> 2. רשום ארוחת בוקר
+                  </Link>
+                  <Link href="/workouts" className="flex items-center gap-2 text-sm hover:text-primary">
+                    <Dumbbell size={14} className="text-primary" /> 3. בדוק את אימון היום
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {noWeightToday && (
+          <Card variant="primary" className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Scale size={18} className="text-primary" />
+              <p className="text-sm font-medium">לא שקלת היום</p>
+            </div>
+            <Link
+              href="/weight"
+              className="text-sm font-semibold text-primary flex items-center gap-1"
+            >
+              לשקילה <ChevronLeft size={14} />
+            </Link>
+          </Card>
+        )}
 
         <div className="flex flex-wrap gap-2">
           {streak > 0 && (
@@ -199,6 +245,9 @@ export default function DashboardPage() {
               <ChevronLeft size={18} className="text-muted" />
             </div>
           </Link>
+          {todaySchedule.type !== "rest" && todaySchedule.type !== "walk" && (
+            <TodayExercisesPreview type={todaySchedule.type} />
+          )}
         </Card>
 
         <CalendarWidget />
