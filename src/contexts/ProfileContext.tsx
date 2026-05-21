@@ -47,7 +47,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       .select("*")
       .eq("user_id", user.id)
       .maybeSingle();
-    setProfile((data as Profile | null) ?? null);
+    setProfile(coerceProfile(data));
     setLoading(false);
   }, []);
 
@@ -64,7 +64,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "profile", filter: `id=eq.${profile.id}` },
-        (payload) => setProfile(payload.new as Profile)
+        (payload) => setProfile(coerceProfile(payload.new))
       )
       .subscribe();
     return () => {
@@ -102,6 +102,30 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       {children}
     </ProfileContext.Provider>
   );
+}
+
+// Postgres `numeric` comes back over the wire as a string (e.g. "85.00").
+// Coerce to JS numbers so math + display work without surprises.
+function coerceProfile(raw: unknown): Profile | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const num = (v: unknown): number | null => {
+    if (v === null || v === undefined || v === "") return null;
+    const n = typeof v === "string" ? parseFloat(v) : (v as number);
+    return Number.isFinite(n) ? n : null;
+  };
+  return {
+    ...(r as object),
+    current_weight_kg: num(r.current_weight_kg),
+    target_weight_kg: num(r.target_weight_kg) ?? 87,
+    daily_calories: num(r.daily_calories) ?? 2092,
+    daily_protein_g: num(r.daily_protein_g) ?? 190,
+    daily_carbs_g: num(r.daily_carbs_g) ?? 180,
+    daily_fat_g: num(r.daily_fat_g) ?? 68,
+    max_heart_rate: num(r.max_heart_rate) ?? 145,
+    age: num(r.age) ?? 26,
+    height_cm: num(r.height_cm) ?? 180,
+  } as Profile;
 }
 
 export function useProfile(): ProfileContextValue {

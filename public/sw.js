@@ -1,4 +1,4 @@
-const CACHE = "orfit-v3";
+const CACHE = "orfit-v4";
 const OFFLINE_URL = "/auth/login";
 
 self.addEventListener("install", (e) => {
