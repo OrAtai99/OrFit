@@ -30,15 +30,20 @@ const SYSTEM_PROMPT = `אתה מאמן כושר אישי קפדן ומקצועי
 
 אל תיתן אישור רפואי. אם יש חששות בריאותיים, הפנה לרופא.`;
 
+interface GeminiContent {
+  role: "user" | "model";
+  parts: { text: string }[];
+}
+
 export async function POST(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      { error: "missing_key", message: "המאמן AI לא מוגדר. הוסף ANTHROPIC_API_KEY ב-Vercel." },
+      { error: "missing_key", message: "המאמן AI לא מוגדר. הוסף GEMINI_API_KEY ב-Vercel." },
       { status: 503 }
     );
   }
@@ -54,37 +59,47 @@ export async function POST(req: Request) {
   }
 
   const messages: ChatMessage[] = body.messages.slice(-30);
-  if (body.context) {
+  if (body.context && messages.length > 0) {
     const last = messages[messages.length - 1];
-    if (last?.role === "user") {
+    if (last.role === "user") {
       last.content = `[הקשר נוכחי: ${body.context}]\n\n${last.content}`;
     }
   }
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const contents: GeminiContent[] = messages.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const res = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 800,
-      system: SYSTEM_PROMPT,
-      messages,
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents,
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 800,
+      },
     }),
   });
 
   if (!res.ok) {
     const text = await res.text();
     return NextResponse.json(
-      { error: "anthropic_error", status: res.status, detail: text.slice(0, 400) },
+      { error: "gemini_error", status: res.status, detail: text.slice(0, 400) },
       { status: 500 }
     );
   }
 
   const data = await res.json();
-  const content = data.content?.[0]?.text ?? "";
-  return NextResponse.json({ reply: content });
+  const reply = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  if (!reply) {
+    return NextResponse.json(
+      { error: "empty_reply", detail: JSON.stringify(data).slice(0, 400) },
+      { status: 500 }
+    );
+  }
+  return NextResponse.json({ reply });
 }
