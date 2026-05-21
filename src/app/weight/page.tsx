@@ -3,7 +3,14 @@
 import PageWrapper from "@/components/layout/PageWrapper";
 import { S } from "@/lib/strings";
 import { createClient } from "@/lib/supabase/client";
-import { movingAverage, formatDate, formatDateShort, dayNameHe, todayISO } from "@/lib/calculations";
+import {
+  movingAverage,
+  formatDate,
+  formatDateShort,
+  dayNameHe,
+  todayISO,
+  predictedDaysToGoal,
+} from "@/lib/calculations";
 import { useState, useEffect, useCallback } from "react";
 import type { DailyWeight } from "@/types";
 import {
@@ -15,18 +22,20 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
+import { Card, Button, Input, EmptyState, useToast } from "@/components/ui";
+import { Scale, TrendingDown, Target, CalendarClock } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 const TARGET = 87;
 
 export default function WeightPage() {
+  const toast = useToast();
   const [entries, setEntries] = useState<DailyWeight[]>([]);
   const [todayEntry, setTodayEntry] = useState<DailyWeight | null>(null);
   const [weight, setWeight] = useState("");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -34,7 +43,7 @@ export default function WeightPage() {
       .from("daily_weight")
       .select("*")
       .order("date", { ascending: true })
-      .limit(30);
+      .limit(60);
     if (data) {
       setEntries(data);
       const today = data.find((e) => e.date === todayISO());
@@ -61,11 +70,10 @@ export default function WeightPage() {
     );
     setSaving(false);
     if (error) {
-      setStatus("error");
+      toast.show(S.weight.errorSave, "error");
     } else {
-      setStatus("saved");
+      toast.show(S.weight.saved, "success");
       await load();
-      setTimeout(() => setStatus("idle"), 2000);
     }
   }
 
@@ -75,21 +83,22 @@ export default function WeightPage() {
     date: formatDateShort(e.date),
     weight: e.weight_kg,
     avg: avgArr[i],
-    target: TARGET,
   }));
 
   const latestWeight = entries.length > 0 ? entries[entries.length - 1].weight_kg : null;
+  const etaDays = predictedDaysToGoal(entries, TARGET);
+  const remaining = latestWeight ? Math.max(0, latestWeight - TARGET) : 0;
 
   return (
     <PageWrapper title={S.weight.title}>
       <div className="space-y-4">
-        {/* Today's weight form */}
-        <div className="card">
-          <h2 className="font-semibold mb-3">
+        <Card>
+          <h2 className="font-semibold mb-3 flex items-center gap-2">
+            <Scale size={18} className="text-primary" />
             {todayEntry ? S.weight.alreadyLogged : S.weight.todayQuestion}
           </h2>
           <div className="flex gap-2 mb-2">
-            <input
+            <Input
               type="number"
               step="0.1"
               min="50"
@@ -97,56 +106,70 @@ export default function WeightPage() {
               placeholder={S.weight.enterWeight}
               value={weight}
               onChange={(e) => setWeight(e.target.value)}
-              dir="ltr"
-              className="flex-1 h-12 px-4 rounded-xl border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-primary text-lg"
+              inputSize="lg"
             />
-            <button
+            <Button
               onClick={handleSave}
-              disabled={saving || !weight}
-              className="px-5 h-12 bg-primary text-white font-semibold rounded-xl disabled:opacity-50 whitespace-nowrap"
+              loading={saving}
+              disabled={!weight}
+              size="lg"
+              className="px-5"
             >
-              {saving ? S.weight.saving : status === "saved" ? S.weight.saved : S.weight.save}
-            </button>
+              {todayEntry ? S.weight.updateWeight : S.weight.save}
+            </Button>
           </div>
-          <input
+          <Input
             type="text"
             placeholder={S.weight.note}
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            className="w-full h-10 px-4 rounded-xl border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-primary text-sm"
+            inputSize="sm"
           />
-          {status === "error" && (
-            <p className="text-sm text-danger mt-2">{S.weight.errorSave}</p>
-          )}
-        </div>
+        </Card>
 
         {latestWeight && (
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="card py-3">
-              <p className="text-xs text-muted">{S.weight.current}</p>
+            <Card className="py-3">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <Scale size={12} className="text-primary" />
+                <p className="text-xs text-muted">{S.weight.current}</p>
+              </div>
               <p className="text-xl font-bold text-primary">{latestWeight}</p>
               <p className="text-xs text-muted">{S.weight.kg}</p>
-            </div>
-            <div className="card py-3">
-              <p className="text-xs text-muted">{S.weight.target}</p>
+            </Card>
+            <Card className="py-3">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <Target size={12} className="text-success" />
+                <p className="text-xs text-muted">{S.weight.target}</p>
+              </div>
               <p className="text-xl font-bold text-success">{TARGET}</p>
               <p className="text-xs text-muted">{S.weight.kg}</p>
-            </div>
-            <div className="card py-3">
-              <p className="text-xs text-muted">{S.weight.remaining}</p>
-              <p className="text-xl font-bold text-danger">
-                {Math.max(0, latestWeight - TARGET).toFixed(1)}
-              </p>
+            </Card>
+            <Card className="py-3">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <TrendingDown size={12} className="text-danger" />
+                <p className="text-xs text-muted">{S.weight.remaining}</p>
+              </div>
+              <p className="text-xl font-bold text-danger">{remaining.toFixed(1)}</p>
               <p className="text-xs text-muted">{S.weight.kg}</p>
-            </div>
+            </Card>
           </div>
         )}
 
-        {/* Chart */}
+        {etaDays !== null && etaDays > 0 && (
+          <Card variant="primary" className="flex items-center gap-3">
+            <CalendarClock size={20} className="text-primary shrink-0" />
+            <p className="text-sm">
+              בקצב הנוכחי תגיע ליעד בעוד <span className="font-bold text-primary">{etaDays}</span>{" "}
+              {S.common.days}
+            </p>
+          </Card>
+        )}
+
         {chartData.length > 1 && (
-          <div className="card">
+          <Card>
             <p className="text-sm font-medium mb-3">{S.weight.chart30Days}</p>
-            <ResponsiveContainer width="100%" height={200}>
+            <ResponsiveContainer width="100%" height={220}>
               <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                 <XAxis
                   dataKey="date"
@@ -154,42 +177,92 @@ export default function WeightPage() {
                   tickFormatter={(v) => v.slice(0, 5)}
                   interval="preserveStartEnd"
                 />
-                <YAxis
-                  tick={{ fontSize: 10 }}
-                  domain={["auto", "auto"]}
-                />
+                <YAxis tick={{ fontSize: 10 }} domain={["auto", "auto"]} />
                 <Tooltip
                   formatter={(value: number, name: string) => [
-                    `${value} ק"ג`,
-                    name === "weight" ? S.weight.actualLine : name === "avg" ? S.weight.movingAvg : S.weight.targetLine,
+                    `${value} ${S.weight.kg}`,
+                    name === "weight"
+                      ? S.weight.actualLine
+                      : name === "avg"
+                      ? S.weight.movingAvg
+                      : S.weight.targetLine,
                   ]}
                 />
-                <ReferenceLine y={TARGET} stroke="#047857" strokeDasharray="4 4" label={{ value: `יעד ${TARGET}`, fontSize: 10, fill: "#047857" }} />
-                <Line type="monotone" dataKey="weight" stroke="#1F4E78" strokeWidth={2} dot={false} name="weight" />
-                <Line type="monotone" dataKey="avg" stroke="#2563a8" strokeWidth={1.5} strokeDasharray="3 3" dot={false} name="avg" />
+                <ReferenceLine
+                  y={TARGET}
+                  stroke="#047857"
+                  strokeDasharray="4 4"
+                  label={{
+                    value: `${S.weight.target} ${TARGET}`,
+                    fontSize: 10,
+                    fill: "#047857",
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="weight"
+                  stroke="#1F4E78"
+                  strokeWidth={2.5}
+                  dot={{ r: 2 }}
+                  name="weight"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="avg"
+                  stroke="#2563a8"
+                  strokeWidth={1.5}
+                  strokeDasharray="3 3"
+                  dot={false}
+                  name="avg"
+                />
               </LineChart>
             </ResponsiveContainer>
-          </div>
+          </Card>
         )}
 
-        {entries.length > 0 && (
-          <div className="card">
+        {entries.length > 0 ? (
+          <Card>
             <p className="text-sm font-medium mb-2">{S.weight.history}</p>
-            <div className="space-y-1 max-h-48 overflow-y-auto">
-              {[...entries].reverse().map((e) => (
-                <div key={e.id} className="flex justify-between items-center py-1.5 border-b border-[var(--border)] last:border-0">
-                  <span className="text-sm text-muted">{dayNameHe(e.date)} · {formatDate(e.date)}</span>
-                  <span className="font-semibold">{e.weight_kg} {S.weight.kg}</span>
-                </div>
-              ))}
+            <div className="space-y-1 max-h-72 overflow-y-auto -mx-2">
+              {[...entries].reverse().map((e, i, arr) => {
+                const prev = arr[i + 1];
+                const delta = prev ? Math.round((e.weight_kg - prev.weight_kg) * 10) / 10 : null;
+                return (
+                  <div
+                    key={e.id}
+                    className="flex justify-between items-center py-2 px-2 border-b border-[var(--border)] last:border-0"
+                  >
+                    <span className="text-sm text-muted">
+                      {dayNameHe(e.date)} · {formatDate(e.date)}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {delta !== null && delta !== 0 && (
+                        <span
+                          className={
+                            "text-xs " + (delta < 0 ? "text-success" : "text-danger")
+                          }
+                        >
+                          {delta > 0 ? "+" : ""}
+                          {delta}
+                        </span>
+                      )}
+                      <span className="font-semibold">
+                        {e.weight_kg} {S.weight.kg}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </div>
-        )}
-
-        {entries.length === 0 && (
-          <div className="card text-center py-8">
-            <p className="text-muted">{S.weight.noHistory}</p>
-          </div>
+          </Card>
+        ) : (
+          <Card>
+            <EmptyState
+              icon={Scale}
+              title={S.weight.noHistory}
+              description="הזן את משקלך הראשון למעלה"
+            />
+          </Card>
         )}
       </div>
     </PageWrapper>

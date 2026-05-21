@@ -6,13 +6,14 @@ import { useRouter } from "next/navigation";
 import { S } from "@/lib/strings";
 import { useState, useEffect, useCallback } from "react";
 import type { Profile } from "@/types";
+import { Card, Button, useToast } from "@/components/ui";
+import { Bell, BellOff, BellRing, LogOut, User, Target } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-type Status = "idle" | "saved" | "error";
-
 export default function SettingsPage() {
   const router = useRouter();
+  const toast = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [name, setName] = useState("אורן");
   const [age, setAge] = useState("26");
@@ -26,7 +27,6 @@ export default function SettingsPage() {
   const [hypertensionMeds, setHypertensionMeds] = useState(true);
   const [maxHR, setMaxHR] = useState("145");
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<Status>("idle");
   const [notifStatus, setNotifStatus] = useState<"default" | "granted" | "denied">("default");
 
   const load = useCallback(async () => {
@@ -69,7 +69,7 @@ export default function SettingsPage() {
     const { data: user } = await supabase.auth.getUser();
     if (!user.user) {
       setSaving(false);
-      setStatus("error");
+      toast.show(S.errors.auth, "error");
       return;
     }
 
@@ -94,11 +94,10 @@ export default function SettingsPage() {
 
     setSaving(false);
     if (error) {
-      setStatus("error");
+      toast.show(S.settings.errorSave, "error");
     } else {
-      setStatus("saved");
+      toast.show(S.settings.saved, "success");
       await load();
-      setTimeout(() => setStatus("idle"), 2000);
     }
   }
 
@@ -106,6 +105,10 @@ export default function SettingsPage() {
     if (!("Notification" in window)) return;
     const permission = await Notification.requestPermission();
     setNotifStatus(permission as "default" | "granted" | "denied");
+    if (permission === "denied") {
+      toast.show(S.settings.notificationsBlocked, "error");
+      return;
+    }
     if (permission === "granted" && "serviceWorker" in navigator) {
       const reg = await navigator.serviceWorker.ready;
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -126,6 +129,7 @@ export default function SettingsPage() {
           },
           { onConflict: "user_id" }
         );
+        toast.show(S.settings.notificationsActive, "success");
       }
     }
   }
@@ -139,8 +143,10 @@ export default function SettingsPage() {
   return (
     <PageWrapper title={S.settings.title}>
       <div className="space-y-4">
-        <div className="card space-y-3">
-          <h2 className="font-semibold">{S.settings.profile}</h2>
+        <Card className="space-y-3">
+          <h2 className="font-semibold flex items-center gap-2">
+            <User size={18} className="text-primary" /> {S.settings.profile}
+          </h2>
 
           <Field label={S.settings.name}>
             <input
@@ -214,10 +220,12 @@ export default function SettingsPage() {
               />
             </button>
           </div>
-        </div>
+        </Card>
 
-        <div className="card space-y-3">
-          <h2 className="font-semibold">{S.settings.goals}</h2>
+        <Card className="space-y-3">
+          <h2 className="font-semibold flex items-center gap-2">
+            <Target size={18} className="text-primary" /> {S.settings.goals}
+          </h2>
           <Field label={S.settings.dailyCalories}>
             <input
               type="number"
@@ -254,40 +262,34 @@ export default function SettingsPage() {
               className="flex-1 h-10 px-3 rounded-xl border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-primary text-sm"
             />
           </Field>
-        </div>
+        </Card>
 
-        {status === "error" && <p className="text-sm text-danger">{S.settings.errorSave}</p>}
+        <Button onClick={saveProfile} loading={saving} variant="primary" size="lg" fullWidth>
+          {saving ? S.settings.saving : S.settings.save}
+        </Button>
 
-        <button
-          onClick={saveProfile}
-          disabled={saving}
-          className="w-full min-h-[48px] bg-primary text-white font-bold rounded-xl disabled:opacity-50"
-        >
-          {saving ? S.settings.saving : status === "saved" ? S.settings.saved : S.settings.save}
-        </button>
-
-        <div className="card">
-          <h2 className="font-semibold mb-3">{S.settings.notifications}</h2>
+        <Card>
+          <h2 className="font-semibold mb-3 flex items-center gap-2">
+            <Bell size={18} className="text-primary" /> {S.settings.notifications}
+          </h2>
           {notifStatus === "granted" ? (
-            <p className="text-sm text-success">✓ {S.settings.notificationsActive}</p>
+            <p className="text-sm text-success flex items-center gap-2">
+              <BellRing size={16} /> {S.settings.notificationsActive}
+            </p>
           ) : notifStatus === "denied" ? (
-            <p className="text-sm text-danger">{S.settings.notificationsBlocked}</p>
+            <p className="text-sm text-danger flex items-center gap-2">
+              <BellOff size={16} /> {S.settings.notificationsBlocked}
+            </p>
           ) : (
-            <button
-              onClick={enableNotifications}
-              className="w-full min-h-[48px] border border-primary text-primary font-semibold rounded-xl"
-            >
-              {S.settings.enableNotifications}
-            </button>
+            <Button onClick={enableNotifications} variant="secondary" fullWidth>
+              <Bell size={16} /> {S.settings.enableNotifications}
+            </Button>
           )}
-        </div>
+        </Card>
 
-        <button
-          onClick={signOut}
-          className="w-full min-h-[52px] border border-danger text-danger font-semibold rounded-xl"
-        >
-          {S.auth.signOut}
-        </button>
+        <Button onClick={signOut} variant="outline" size="lg" fullWidth className="border-danger text-danger">
+          <LogOut size={16} /> {S.auth.signOut}
+        </Button>
       </div>
     </PageWrapper>
   );

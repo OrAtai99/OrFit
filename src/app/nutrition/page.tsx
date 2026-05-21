@@ -6,6 +6,9 @@ import { createClient } from "@/lib/supabase/client";
 import { todayISO, isWorkoutDayByDate } from "@/lib/calculations";
 import { useState, useEffect, useCallback } from "react";
 import type { NutritionLog } from "@/types";
+import { Card, Button, Input, useToast } from "@/components/ui";
+import { Beef, Wheat, Droplet, Flame, Footprints, AlertTriangle } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -17,19 +20,30 @@ type MacroBarProps = {
   goal: number;
   unit: string;
   color: string;
+  icon: LucideIcon;
 };
 
-function MacroBar({ label, current, goal, unit, color }: MacroBarProps) {
+function MacroBar({ label, current, goal, unit, color, icon: Icon }: MacroBarProps) {
   const pct = Math.min(100, Math.round((current / goal) * 100));
+  const over = current > goal;
   return (
     <div>
-      <div className="flex justify-between text-xs text-muted mb-1">
-        <span>{label}</span>
-        <span>{current} / {goal} {unit}</span>
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2">
+          <Icon size={14} style={{ color }} />
+          <span className="text-sm font-medium">{label}</span>
+        </div>
+        <span className="text-xs text-muted">
+          <span className={over ? "text-danger font-semibold" : "font-semibold text-[var(--foreground)]"}>
+            {current}
+          </span>
+          {" / "}
+          {goal} {unit}
+        </span>
       </div>
       <div className="h-2 bg-[var(--border)] rounded-full overflow-hidden">
         <div
-          className="h-full rounded-full transition-all"
+          className="h-full rounded-full transition-all duration-500"
           style={{ width: pct + "%", backgroundColor: color }}
         />
       </div>
@@ -38,6 +52,7 @@ function MacroBar({ label, current, goal, unit, color }: MacroBarProps) {
 }
 
 export default function NutritionPage() {
+  const toast = useToast();
   const [entry, setEntry] = useState<NutritionLog | null>(null);
   const [calories, setCalories] = useState("");
   const [protein, setProtein] = useState("");
@@ -46,7 +61,6 @@ export default function NutritionPage() {
   const [steps, setSteps] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -66,7 +80,9 @@ export default function NutritionPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   async function handleSave() {
     setSaving(true);
@@ -85,11 +101,10 @@ export default function NutritionPage() {
     );
     setSaving(false);
     if (error) {
-      setStatus("error");
+      toast.show(S.settings.errorSave, "error");
     } else {
-      setStatus("saved");
+      toast.show(S.nutrition.saved, "success");
       await load();
-      setTimeout(() => setStatus("idle"), 2000);
     }
   }
 
@@ -97,92 +112,101 @@ export default function NutritionPage() {
   const proteinVal = parseFloat(protein) || 0;
   const proteinWarning = isWorkoutDay && proteinVal > 0 && proteinVal < 150;
 
+  const macroFields = [
+    { label: S.nutrition.calories, value: calories, set: setCalories, placeholder: "2092", icon: Flame },
+    { label: S.nutrition.protein, value: protein, set: setProtein, placeholder: "190", icon: Beef },
+    { label: S.nutrition.carbs, value: carbs, set: setCarbs, placeholder: "180", icon: Wheat },
+    { label: S.nutrition.fat, value: fat, set: setFat, placeholder: "68", icon: Droplet },
+    { label: S.nutrition.steps, value: steps, set: setSteps, placeholder: "10000", icon: Footprints },
+  ];
+
   return (
     <PageWrapper title={S.nutrition.title}>
       <div className="space-y-4">
-
         {proteinWarning && (
-          <div className="card border-danger bg-danger/10">
-            <p className="text-sm font-medium text-danger">{"⚠️ " + S.nutrition.proteinWarning}</p>
-          </div>
+          <Card variant="danger" className="flex items-center gap-3">
+            <AlertTriangle size={20} className="text-danger shrink-0" />
+            <p className="text-sm font-medium text-danger">{S.nutrition.proteinWarning}</p>
+          </Card>
         )}
 
         {entry && (
-          <div className="card space-y-3">
+          <Card className="space-y-4">
             <p className="text-sm font-medium">{S.nutrition.today}</p>
             <MacroBar
-              label={S.nutrition.calories + ' (קק"ל)'}
+              icon={Flame}
+              label={S.nutrition.calories}
               current={entry.calories ?? 0}
               goal={TARGETS.calories}
-              unit={'קק"ל'}
+              unit={S.common.kcal}
               color="#1F4E78"
             />
             <MacroBar
+              icon={Beef}
               label={S.nutrition.protein}
               current={entry.protein_g ?? 0}
               goal={TARGETS.protein}
-              unit="גרם"
+              unit={S.common.g}
               color="#047857"
             />
             <MacroBar
+              icon={Wheat}
               label={S.nutrition.carbs}
               current={entry.carbs_g ?? 0}
               goal={TARGETS.carbs}
-              unit="גרם"
+              unit={S.common.g}
               color="#2563a8"
             />
             <MacroBar
+              icon={Droplet}
               label={S.nutrition.fat}
               current={entry.fat_g ?? 0}
               goal={TARGETS.fat}
-              unit="גרם"
+              unit={S.common.g}
               color="#B91C1C"
             />
-          </div>
+            {entry.steps !== null && (
+              <MacroBar
+                icon={Footprints}
+                label={S.nutrition.steps}
+                current={entry.steps}
+                goal={10000}
+                unit={S.common.steps}
+                color="#7C3AED"
+              />
+            )}
+          </Card>
         )}
 
-        <div className="card space-y-3">
+        <Card className="space-y-3">
           <h2 className="font-semibold">{entry ? S.nutrition.update : S.nutrition.today}</h2>
 
-          {[
-            { label: S.nutrition.calories, value: calories, set: setCalories, placeholder: "2092" },
-            { label: S.nutrition.protein, value: protein, set: setProtein, placeholder: "190" },
-            { label: S.nutrition.carbs, value: carbs, set: setCarbs, placeholder: "180" },
-            { label: S.nutrition.fat, value: fat, set: setFat, placeholder: "68" },
-            { label: S.nutrition.steps, value: steps, set: setSteps, placeholder: "8000" },
-          ].map(({ label, value, set, placeholder }) => (
+          {macroFields.map(({ label, value, set, placeholder, icon: Icon }) => (
             <div key={label} className="flex items-center gap-3">
-              <label className="text-sm text-muted w-20 shrink-0">{label}</label>
-              <input
+              <Icon size={18} className="text-muted shrink-0" />
+              <label className="text-sm text-muted w-16 shrink-0">{label}</label>
+              <Input
                 type="number"
                 min="0"
                 value={value}
                 onChange={(e) => set(e.target.value)}
                 placeholder={placeholder}
-                dir="ltr"
-                className="flex-1 h-11 px-3 rounded-xl border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-primary"
               />
             </div>
           ))}
 
-          <input
+          <Input
             type="text"
             placeholder={S.nutrition.notes}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="w-full h-10 px-3 rounded-xl border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-primary text-sm"
+            inputSize="sm"
           />
 
-          {status === "error" && <p className="text-sm text-danger">שגיאה. נסה שוב.</p>}
-
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full min-h-[52px] bg-primary text-white font-bold rounded-xl disabled:opacity-50"
-          >
-            {saving ? S.nutrition.saving : status === "saved" ? S.nutrition.saved : S.nutrition.save}
-          </button>
-        </div>
+          <Button onClick={handleSave} loading={saving} variant="primary" size="lg" fullWidth>
+            {saving ? S.nutrition.saving : S.nutrition.save}
+          </Button>
+        </Card>
       </div>
     </PageWrapper>
   );

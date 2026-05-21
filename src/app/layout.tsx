@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Heebo } from "next/font/google";
+import { Providers } from "@/components/Providers";
 import "./globals.css";
 
 const heebo = Heebo({
@@ -45,7 +46,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans antialiased min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

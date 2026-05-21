@@ -3,10 +3,12 @@
 import PageWrapper from "@/components/layout/PageWrapper";
 import { S } from "@/lib/strings";
 import { createClient } from "@/lib/supabase/client";
-import { todayISO, dayNameHe, formatDate } from "@/lib/calculations";
+import { todayISO, dayNameHe, formatDate, workoutVolume } from "@/lib/calculations";
 import { WEEKLY_SCHEDULE, getTemplateForType } from "@/lib/exercises";
 import { useState, useEffect, useCallback } from "react";
-import type { Workout, WorkoutSet } from "@/types";
+import type { Workout, WorkoutSet, WorkoutType } from "@/types";
+import { Card, Badge, Button, EmptyState } from "@/components/ui";
+import { Dumbbell, History, TrendingUp, Footprints, Bed, ChevronLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -68,19 +70,41 @@ export default function WorkoutsPage() {
     const existingSets = workout.workout_sets ?? [];
 
     if (existingSets.length === 0) {
+      const lastSetsByExercise = await getLastWorkoutSets(todaySchedule.type, workout.id);
       const template = getTemplateForType(todaySchedule.type);
       const prefilledSets: object[] = [];
       template?.exercises.forEach((ex) => {
+        const lastSets = lastSetsByExercise[ex.name] ?? [];
         ex.sets.forEach((value, i) => {
           const isSeconds = ex.repsUnit === "seconds";
           const isReps = ex.repsUnit === "reps";
+          const lastSet = lastSets[i];
+          // Progressive overload: if last time user hit target reps, suggest +2.5 kg.
+          // Otherwise reuse last weight. Falls back to template weight on the very first time.
+          let weight: number | null = isSeconds || isReps ? null : value;
+          if (!isSeconds && !isReps && lastSet) {
+            const targetReps = 12;
+            const hitTarget = (lastSet.reps ?? 0) >= targetReps;
+            const lastWeight = lastSet.weight_kg ?? value;
+            weight = hitTarget ? lastWeight + 2.5 : lastWeight;
+          }
+          let durationSeconds: number | null = isSeconds ? value : null;
+          if (isSeconds && lastSet) {
+            const lastDur = lastSet.duration_seconds ?? value;
+            durationSeconds = lastDur >= value ? lastDur + 5 : lastDur;
+          }
+          let reps: number | null = isSeconds ? null : isReps ? value : 12;
+          if (isReps && lastSet) {
+            const lastReps = lastSet.reps ?? value;
+            reps = lastReps >= value ? lastReps + 2 : lastReps;
+          }
           prefilledSets.push({
             workout_id: workout.id,
             exercise_name: ex.name,
             set_number: i + 1,
-            weight_kg: isSeconds || isReps ? null : value,
-            reps: isSeconds ? null : isReps ? value : 12,
-            duration_seconds: isSeconds ? value : null,
+            weight_kg: weight,
+            reps,
+            duration_seconds: durationSeconds,
             is_warmup: false,
           });
         });
@@ -99,6 +123,27 @@ export default function WorkoutsPage() {
     setActiveWorkout({ ...workout, sets: typedSets });
     setView("logger");
     await load();
+  }
+
+  async function getLastWorkoutSets(type: WorkoutType, currentWorkoutId: string) {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("workouts")
+      .select("id, workout_sets(*)")
+      .eq("type", type)
+      .neq("id", currentWorkoutId)
+      .order("date", { ascending: false })
+      .limit(1);
+    const map: Record<string, WorkoutSet[]> = {};
+    if (data && data[0]) {
+      const sets = (data[0].workout_sets as WorkoutSet[]) ?? [];
+      sets.forEach((s) => {
+        if (!map[s.exercise_name]) map[s.exercise_name] = [];
+        map[s.exercise_name].push(s);
+      });
+      Object.keys(map).forEach((k) => map[k].sort((a, b) => a.set_number - b.set_number));
+    }
+    return map;
   }
 
   async function logWalkOrCompleted() {
@@ -179,83 +224,98 @@ export default function WorkoutsPage() {
   // === Schedule view ===
   const isWalk = todaySchedule.type === "walk";
   const isRest = todaySchedule.type === "rest";
-  const startLabel = isWalk ? S.workouts.workoutSaved : S.workouts.startWorkout;
+  const TodayIcon = isRest ? Bed : isWalk ? Footprints : Dumbbell;
 
   return (
     <PageWrapper title={S.workouts.title}>
       <div className="space-y-4">
-        <div className="card">
-          <p className="text-sm text-muted mb-1">{S.workouts.thisWeek}</p>
+        <Card>
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xl font-bold">{TYPE_LABELS[todaySchedule.type]}</p>
-              <p className="text-sm text-muted">
-                {todaySchedule.time ?? "כל היום"} — {todaySchedule.dayName}
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                <TodayIcon size={24} className="text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted uppercase tracking-wider">{S.workouts.thisWeek}</p>
+                <p className="text-lg font-bold">{TYPE_LABELS[todaySchedule.type]}</p>
+                <p className="text-xs text-muted">
+                  {todaySchedule.time ?? "כל היום"} · {todaySchedule.dayName}
+                </p>
+              </div>
             </div>
-            {!isRest && (
-              <button
-                onClick={
-                  todayWorkout?.completed
-                    ? undefined
-                    : isWalk
-                    ? logWalkOrCompleted
-                    : startWorkout
-                }
-                className={
-                  "px-4 py-2 rounded-xl font-semibold text-sm " +
-                  (todayWorkout?.completed
-                    ? "bg-success/20 text-success"
-                    : "bg-primary text-white")
-                }
+            {!isRest && !todayWorkout?.completed && (
+              <Button
+                onClick={isWalk ? logWalkOrCompleted : startWorkout}
+                variant={isWalk ? "success" : "primary"}
+                size="md"
               >
-                {todayWorkout?.completed ? S.dashboard.completed : isWalk ? S.common.done : startLabel}
-              </button>
+                {isWalk ? S.common.done : S.workouts.startWorkout}
+              </Button>
+            )}
+            {todayWorkout?.completed && (
+              <Badge variant="success">✓ {S.dashboard.completed}</Badge>
             )}
           </div>
-        </div>
+        </Card>
 
-        <div className="card">
-          <p className="text-sm font-medium mb-2">לוח שבועי</p>
+        <Card>
+          <p className="text-sm font-medium mb-3">לוח שבועי</p>
           <div className="space-y-1">
-            {WEEKLY_SCHEDULE.map((day) => (
-              <div
-                key={day.day}
-                className={
-                  "flex justify-between py-1.5 px-2 rounded-lg " +
-                  (day.day === new Date().getDay() ? "bg-primary/10" : "")
-                }
-              >
-                <span className="text-sm font-medium">{day.dayName}</span>
-                <span className="text-sm text-muted">
-                  {TYPE_LABELS[day.type]} {day.time ?? ""}
-                </span>
-              </div>
-            ))}
+            {WEEKLY_SCHEDULE.map((day) => {
+              const isToday = day.day === new Date().getDay();
+              return (
+                <div
+                  key={day.day}
+                  className={
+                    "flex items-center justify-between py-2 px-3 rounded-lg " +
+                    (isToday ? "bg-primary/10" : "")
+                  }
+                >
+                  <span className={"text-sm " + (isToday ? "font-semibold text-primary" : "")}>
+                    {day.dayName}
+                  </span>
+                  <span className="text-sm text-muted">
+                    {TYPE_LABELS[day.type]} {day.time ?? ""}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-        </div>
+        </Card>
 
-        {history.length > 0 && (
-          <div className="card">
-            <p className="text-sm font-medium mb-2">{S.workouts.history}</p>
+        {history.length > 0 ? (
+          <Card>
+            <div className="flex items-center gap-2 mb-3">
+              <History size={16} className="text-muted" />
+              <p className="text-sm font-medium">{S.workouts.history}</p>
+            </div>
             <div className="space-y-1">
               {history.slice(0, 10).map((w) => (
                 <button
                   key={w.id}
                   onClick={() => openDetail(w.id)}
-                  className="w-full flex justify-between items-center py-2 px-2 -mx-2 rounded-lg hover:bg-[var(--border)]/30 border-b border-[var(--border)] last:border-0"
+                  className="w-full flex justify-between items-center py-2 px-3 -mx-3 rounded-lg hover:bg-[var(--border)]/30 border-b border-[var(--border)] last:border-0"
                 >
-                  <span className="text-sm text-muted">
-                    {dayNameHe(w.date)} · {formatDate(w.date)}
+                  <span className="flex items-center gap-2 text-sm">
+                    {w.completed && <span className="text-success">✓</span>}
+                    <span className="font-medium">{TYPE_LABELS[w.type]}</span>
                   </span>
-                  <span className="text-sm font-medium">
-                    {w.completed ? "✓ " : ""}
-                    {TYPE_LABELS[w.type]}
+                  <span className="flex items-center gap-2 text-xs text-muted">
+                    {dayNameHe(w.date)} · {formatDate(w.date)}
+                    <ChevronLeft size={14} />
                   </span>
                 </button>
               ))}
             </div>
-          </div>
+          </Card>
+        ) : (
+          <Card>
+            <EmptyState
+              icon={History}
+              title="עוד לא נשמרו אימונים"
+              description="התחל אימון היום והוא יופיע כאן"
+            />
+          </Card>
         )}
       </div>
     </PageWrapper>
@@ -291,22 +351,32 @@ function LoggerView({
 
   const hrWarning = workout.max_heart_rate !== null && (workout.max_heart_rate ?? 0) > 145;
   const title = TYPE_LABELS[workout.type] + " · " + dayNameHe(workout.date);
+  const volume = workoutVolume(workout.sets);
 
   return (
     <PageWrapper title={title}>
       <div className="space-y-3">
+        {volume > 0 && (
+          <Card className="flex items-center justify-between py-3">
+            <span className="flex items-center gap-2 text-sm text-muted">
+              <TrendingUp size={16} /> נפח אימון
+            </span>
+            <span className="font-bold text-primary">{volume.toFixed(0)} {S.weight.kg}</span>
+          </Card>
+        )}
+
         {order.map((exercise) => (
-          <div key={exercise} className="card">
-            <p className="font-semibold mb-2">{exercise}</p>
+          <Card key={exercise}>
+            <p className="font-semibold mb-3">{exercise}</p>
             <div className="space-y-2">
               {grouped[exercise].map((s) => (
                 <SetRow key={s.id} set={s} onUpdate={onUpdateSet} />
               ))}
             </div>
-          </div>
+          </Card>
         ))}
 
-        <div className="card space-y-3">
+        <Card className="space-y-3">
           <p className="font-semibold">{S.workouts.vitals}</p>
           <div className="flex items-center gap-3">
             <label className="text-sm text-muted w-24 shrink-0">{S.workouts.maxHR}</label>
@@ -320,7 +390,10 @@ function LoggerView({
               }
               placeholder="145"
               dir="ltr"
-              className="flex-1 h-10 px-3 rounded-xl border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-primary text-sm"
+              className={
+                "flex-1 h-10 px-3 rounded-xl border bg-[var(--background)] focus:outline-none focus:border-primary text-sm " +
+                (hrWarning ? "border-danger" : "border-[var(--border)]")
+              }
             />
           </div>
           {hrWarning && (
@@ -348,21 +421,14 @@ function LoggerView({
             placeholder={S.workouts.notes}
             className="w-full h-10 px-3 rounded-xl border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-primary text-sm"
           />
-        </div>
+        </Card>
 
-        <button
-          onClick={onFinish}
-          disabled={saving}
-          className="w-full min-h-[52px] bg-success text-white font-bold rounded-xl disabled:opacity-50"
-        >
+        <Button onClick={onFinish} loading={saving} variant="success" size="lg" fullWidth>
           {saving ? S.workouts.finishing : S.workouts.finishWorkout}
-        </button>
-        <button
-          onClick={onBack}
-          className="w-full min-h-[44px] border border-[var(--border)] text-muted rounded-xl text-sm"
-        >
+        </Button>
+        <Button onClick={onBack} variant="outline" size="md" fullWidth>
           {S.common.back}
-        </button>
+        </Button>
       </div>
     </PageWrapper>
   );
@@ -461,46 +527,61 @@ function DetailView({
 
   const title = TYPE_LABELS[workout.type] + " · " + dayNameHe(workout.date);
 
+  const volume = workoutVolume(workout.sets);
+
   return (
     <PageWrapper title={title}>
       <div className="space-y-3">
-        <div className="card text-sm">
-          <p className="text-muted">{formatDate(workout.date)}</p>
-          {workout.max_heart_rate && (
-            <p className="mt-1">
-              <span className="text-muted">{S.workouts.maxHR}: </span>
-              <span className={workout.max_heart_rate > 145 ? "text-danger font-semibold" : ""}>
-                {workout.max_heart_rate}
-              </span>
-            </p>
-          )}
-          {workout.duration_minutes && (
-            <p className="mt-1">
-              <span className="text-muted">{S.workouts.duration}: </span>
-              {workout.duration_minutes}
-            </p>
-          )}
+        <Card>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-muted">{formatDate(workout.date)}</p>
+            {workout.completed && <Badge variant="success">✓ {S.dashboard.completed}</Badge>}
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            {volume > 0 && (
+              <div>
+                <p className="text-xs text-muted">נפח</p>
+                <p className="font-bold text-primary">
+                  {volume.toFixed(0)}<span className="text-xs font-normal text-muted mr-1">{S.weight.kg}</span>
+                </p>
+              </div>
+            )}
+            {workout.max_heart_rate !== null && (
+              <div>
+                <p className="text-xs text-muted">{S.workouts.maxHR}</p>
+                <p className={"font-bold " + (workout.max_heart_rate > 145 ? "text-danger" : "text-primary")}>
+                  {workout.max_heart_rate}
+                </p>
+              </div>
+            )}
+            {workout.duration_minutes !== null && (
+              <div>
+                <p className="text-xs text-muted">דקות</p>
+                <p className="font-bold text-primary">{workout.duration_minutes}</p>
+              </div>
+            )}
+          </div>
           {workout.notes && (
-            <p className="mt-1">
-              <span className="text-muted">{S.workouts.notes}: </span>
-              {workout.notes}
-            </p>
+            <p className="text-sm text-muted mt-3 pt-3 border-t border-[var(--border)]">{workout.notes}</p>
           )}
-        </div>
+        </Card>
 
         {order.length === 0 ? (
-          <div className="card text-center text-muted text-sm py-6">
-            {workout.type === "walk" ? "הליכה הושלמה" : "אין סטים מתועדים"}
-          </div>
+          <Card>
+            <EmptyState
+              icon={workout.type === "walk" ? Footprints : Dumbbell}
+              title={workout.type === "walk" ? "הליכה הושלמה" : "אין סטים מתועדים"}
+            />
+          </Card>
         ) : (
           order.map((exercise) => (
-            <div key={exercise} className="card">
+            <Card key={exercise}>
               <p className="font-semibold mb-2">{exercise}</p>
               <div className="space-y-1">
                 {grouped[exercise].map((s) => (
-                  <div key={s.id} className="flex justify-between text-sm">
+                  <div key={s.id} className="flex justify-between text-sm py-1">
                     <span className="text-muted">{S.workouts.set} {s.set_number}</span>
-                    <span>
+                    <span className="font-medium">
                       {s.duration_seconds !== null
                         ? `${s.duration_seconds} ${S.workouts.seconds}`
                         : s.weight_kg === null || s.weight_kg === 0
@@ -510,16 +591,13 @@ function DetailView({
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           ))
         )}
 
-        <button
-          onClick={onBack}
-          className="w-full min-h-[44px] border border-[var(--border)] text-muted rounded-xl text-sm"
-        >
+        <Button onClick={onBack} variant="outline" size="md" fullWidth>
           {S.common.back}
-        </button>
+        </Button>
       </div>
     </PageWrapper>
   );

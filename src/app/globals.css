@@ -8,23 +8,24 @@
   --card: #ffffff;
   --card-foreground: #111827;
   --border: #E5E7EB;
+  --primary-glow: 31 78 120;
 }
 
 .dark {
-  --background: #111827;
+  --background: #0B1220;
   --foreground: #F9FAFB;
-  --card: #1F2937;
+  --card: #111827;
   --card-foreground: #F9FAFB;
-  --border: #374151;
+  --border: #1F2937;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    --background: #111827;
+    --background: #0B1220;
     --foreground: #F9FAFB;
-    --card: #1F2937;
+    --card: #111827;
     --card-foreground: #F9FAFB;
-    --border: #374151;
+    --border: #1F2937;
   }
 }
 
@@ -33,10 +34,19 @@ body {
   color: var(--foreground);
   font-family: var(--font-heebo), Arial, sans-serif;
   -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 * {
   box-sizing: border-box;
+}
+
+input,
+textarea,
+select,
+button {
+  font-family: inherit;
 }
 
 /* Safe area insets for mobile */
@@ -47,6 +57,7 @@ body {
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -54,8 +65,31 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #374151;
+  background: var(--border);
   border-radius: 2px;
+}
+
+/* Number inputs without spinners on mobile */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Smooth focus transition */
+input:focus,
+button:focus {
+  outline: none;
+}
+
+/* Tap highlight removal */
+button,
+a,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
 }
 
 @layer utilities {
@@ -63,11 +97,26 @@ body {
     text-wrap: balance;
   }
 
+  /* Legacy .card class kept for any leftover usage; new code uses <Card /> component */
   .card {
     background: var(--card);
     color: var(--card-foreground);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 16px;
     padding: 16px;
+  }
+
+  .glass {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Subtle entrance animations */
+  .fade-in {
+    animation: fadeIn 0.25s ease-out;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 }
