@@ -3,7 +3,7 @@
 import PageWrapper from "@/components/layout/PageWrapper";
 import { S } from "@/lib/strings";
 import { createClient } from "@/lib/supabase/client";
-import { movingAverage, formatDate, todayISO } from "@/lib/calculations";
+import { movingAverage, formatDate, formatDateShort, dayNameHe, todayISO } from "@/lib/calculations";
 import { useState, useEffect, useCallback } from "react";
 import type { DailyWeight } from "@/types";
 import {
@@ -72,7 +72,7 @@ export default function WeightPage() {
   const weights = entries.map((e) => e.weight_kg);
   const avgArr = movingAverage(weights, 7);
   const chartData = entries.map((e, i) => ({
-    date: formatDate(e.date),
+    date: formatDateShort(e.date),
     weight: e.weight_kg,
     avg: avgArr[i],
     target: TARGET,
@@ -116,29 +116,28 @@ export default function WeightPage() {
             className="w-full h-10 px-4 rounded-xl border border-[var(--border)] bg-[var(--background)] focus:outline-none focus:border-primary text-sm"
           />
           {status === "error" && (
-            <p className="text-sm text-danger mt-2">שגיאה בשמירה. נסה שוב.</p>
+            <p className="text-sm text-danger mt-2">{S.weight.errorSave}</p>
           )}
         </div>
 
-        {/* Stats summary */}
         {latestWeight && (
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="card py-3">
-              <p className="text-xs text-muted">נוכחי</p>
+              <p className="text-xs text-muted">{S.weight.current}</p>
               <p className="text-xl font-bold text-primary">{latestWeight}</p>
-              <p className="text-xs text-muted">ק"ג</p>
+              <p className="text-xs text-muted">{S.weight.kg}</p>
             </div>
             <div className="card py-3">
-              <p className="text-xs text-muted">יעד</p>
+              <p className="text-xs text-muted">{S.weight.target}</p>
               <p className="text-xl font-bold text-success">{TARGET}</p>
-              <p className="text-xs text-muted">ק"ג</p>
+              <p className="text-xs text-muted">{S.weight.kg}</p>
             </div>
             <div className="card py-3">
-              <p className="text-xs text-muted">נותר</p>
+              <p className="text-xs text-muted">{S.weight.remaining}</p>
               <p className="text-xl font-bold text-danger">
                 {Math.max(0, latestWeight - TARGET).toFixed(1)}
               </p>
-              <p className="text-xs text-muted">ק"ג</p>
+              <p className="text-xs text-muted">{S.weight.kg}</p>
             </div>
           </div>
         )}
@@ -173,15 +172,14 @@ export default function WeightPage() {
           </div>
         )}
 
-        {/* History */}
         {entries.length > 0 && (
           <div className="card">
             <p className="text-sm font-medium mb-2">{S.weight.history}</p>
             <div className="space-y-1 max-h-48 overflow-y-auto">
               {[...entries].reverse().map((e) => (
                 <div key={e.id} className="flex justify-between items-center py-1.5 border-b border-[var(--border)] last:border-0">
-                  <span className="text-sm text-muted">{formatDate(e.date)}</span>
-                  <span className="font-semibold">{e.weight_kg} ק"ג</span>
+                  <span className="text-sm text-muted">{dayNameHe(e.date)} · {formatDate(e.date)}</span>
+                  <span className="font-semibold">{e.weight_kg} {S.weight.kg}</span>
                 </div>
               ))}
             </div>

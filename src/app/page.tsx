@@ -13,6 +13,17 @@ export const dynamic = "force-dynamic";
 const TARGET = 87;
 const START_WEIGHT = 96.8;
 const TARGET_DATE = "2026-07-31";
+const RING_RADIUS = 50;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+const TYPE_LABELS: Record<string, string> = {
+  push: "Push",
+  pull: "Pull",
+  legs: "Legs",
+  upper: "Upper",
+  walk: "הליכה",
+  rest: "מנוחה",
+};
 
 export default function DashboardPage() {
   const [latestWeight, setLatestWeight] = useState<DailyWeight | null>(null);
@@ -42,74 +53,68 @@ export default function DashboardPage() {
     : 0;
   const isWorkoutDay = isWorkoutDayByDate(todayISO());
   const protein = todayNutrition?.protein_g ?? 0;
-  const proteinWarning = isWorkoutDay && loaded && todayNutrition && protein < 150;
-
-  const TYPE_LABELS: Record<string, string> = {
-    push: "Push", pull: "Pull", legs: "Legs", upper: "Upper", walk: "הליכה", rest: "מנוחה"
-  };
+  const proteinWarning = isWorkoutDay && loaded && todayNutrition !== null && protein > 0 && protein < 150;
+  const ringDash = (progress / 100) * RING_CIRCUMFERENCE;
 
   return (
     <PageWrapper title={S.app.name}>
       <div className="space-y-4">
-        {/* Progress ring simulation */}
         <div className="card text-center py-5">
           <div className="relative inline-flex items-center justify-center w-28 h-28 mb-3">
             <svg className="w-28 h-28 -rotate-90" viewBox="0 0 120 120">
-              <circle cx="60" cy="60" r="50" fill="none" stroke="var(--border)" strokeWidth="10" />
+              <circle cx="60" cy="60" r={RING_RADIUS} fill="none" stroke="var(--border)" strokeWidth="10" />
               <circle
-                cx="60" cy="60" r="50" fill="none"
+                cx="60" cy="60" r={RING_RADIUS} fill="none"
                 stroke="#1F4E78"
                 strokeWidth="10"
-                strokeDasharray={`${progress * 3.14} 314`}
+                strokeDasharray={`${ringDash} ${RING_CIRCUMFERENCE}`}
                 strokeLinecap="round"
               />
             </svg>
             <div className="absolute text-center">
               <p className="text-2xl font-bold text-primary">{progress}%</p>
-              <p className="text-xs text-muted">יעד</p>
+              <p className="text-xs text-muted">{S.dashboard.target}</p>
             </div>
           </div>
           <p className="text-sm text-muted">
-            {latestWeight ? `${latestWeight.weight_kg} ק"ג` : "—"} → {TARGET} ק"ג
+            {latestWeight ? `${latestWeight.weight_kg} ${S.common.kg}` : "—"} → {TARGET} {S.common.kg}
           </p>
-          <p className="text-xs text-muted mt-1">{daysLeft} ימים לסיום</p>
+          <p className="text-xs text-muted mt-1">{daysLeft} {S.dashboard.daysToFinish}</p>
         </div>
 
-        {/* Stats grid */}
         <div className="grid grid-cols-2 gap-3">
           <div className="card text-center">
             <p className="text-xs text-muted">{S.dashboard.currentWeight}</p>
             <p className="text-2xl font-bold text-primary mt-1">
               {latestWeight ? latestWeight.weight_kg : "—"}
-              <span className="text-sm font-normal mr-1">ק"ג</span>
+              <span className="text-sm font-normal mr-1">{S.common.kg}</span>
             </p>
           </div>
           <div className="card text-center">
             <p className="text-xs text-muted">{S.dashboard.daysLeft}</p>
             <p className="text-2xl font-bold text-primary mt-1">
               {daysLeft}
-              <span className="text-sm font-normal mr-1">ימים</span>
+              <span className="text-sm font-normal mr-1">{S.common.days}</span>
             </p>
           </div>
           <div className="card text-center">
-            <p className="text-xs text-muted">חלבון היום</p>
+            <p className="text-xs text-muted">{S.dashboard.todayProtein}</p>
             <p className={`text-2xl font-bold mt-1 ${proteinWarning ? "text-danger" : "text-success"}`}>
               {protein > 0 ? protein : "—"}
-              <span className="text-sm font-normal mr-1">גרם</span>
+              <span className="text-sm font-normal mr-1">{S.common.g}</span>
             </p>
           </div>
           <div className="card text-center">
-            <p className="text-xs text-muted">קלוריות היום</p>
+            <p className="text-xs text-muted">{S.dashboard.todayCalories}</p>
             <p className="text-2xl font-bold text-primary mt-1">
               {todayNutrition?.calories ?? "—"}
-              {todayNutrition?.calories && <span className="text-sm font-normal mr-1">קק"ל</span>}
+              {todayNutrition?.calories ? <span className="text-sm font-normal mr-1">{S.common.kcal}</span> : null}
             </p>
           </div>
         </div>
 
-        {/* Today's workout */}
         <div className="card">
-          <p className="text-xs text-muted mb-1">אימון היום</p>
+          <p className="text-xs text-muted mb-1">{S.dashboard.todayWorkout}</p>
           <div className="flex justify-between items-center">
             <div>
               <p className="font-semibold">
@@ -117,17 +122,16 @@ export default function DashboardPage() {
               </p>
               {nextWorkout && todaySchedule.type === "rest" && (
                 <p className="text-xs text-muted">
-                  הבא: {TYPE_LABELS[nextWorkout.type]} בעוד {nextWorkout.daysFromNow} ימים
+                  {S.dashboard.nextWorkoutIn}{TYPE_LABELS[nextWorkout.type]} {S.dashboard.inDays}{nextWorkout.daysFromNow} {S.common.days}
                 </p>
               )}
             </div>
             {todayWorkout?.completed && (
-              <span className="text-success text-xl">✓</span>
+              <span className="text-success font-semibold text-sm bg-success/10 px-3 py-1 rounded-lg">✓ {S.dashboard.completed}</span>
             )}
           </div>
         </div>
 
-        {/* Red rules */}
         {proteinWarning ? (
           <div className="card border-danger/50 bg-danger/10">
             <p className="text-sm font-semibold text-danger">⚠️ {S.redRules.proteinLow}</p>

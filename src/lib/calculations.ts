@@ -43,6 +43,23 @@ export function formatDate(dateStr: string): string {
   return `${day}/${month}/${year}`;
 }
 
+const DAY_NAMES = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+const MONTH_NAMES = ["ינו", "פבר", "מרץ", "אפר", "מאי", "יוני", "יולי", "אוג", "ספט", "אוק", "נוב", "דצמ"];
+
+export function formatDateHe(dateStr: string): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return `${day} ${MONTH_NAMES[month - 1]} ${year}`;
+}
+
+export function formatDateShort(dateStr: string): string {
+  const [, month, day] = dateStr.split("-").map(Number);
+  return `${day}/${month}`;
+}
+
+export function dayNameHe(dateStr: string): string {
+  return DAY_NAMES[new Date(dateStr).getDay()];
+}
+
 export function todayISO(): string {
   return new Date().toISOString().split("T")[0];
 }

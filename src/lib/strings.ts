@@ -32,6 +32,14 @@ export const S = {
     noData: "אין נתונים עדיין",
     weightUnit: "ק\"ג",
     percentUnit: "%",
+    todayWorkout: "אימון היום",
+    todayProtein: "חלבון היום",
+    todayCalories: "קלוריות היום",
+    daysToFinish: "ימים לסיום",
+    nextWorkoutIn: "הבא: ",
+    inDays: "בעוד ",
+    target: "יעד",
+    completed: "הושלם",
   },
 
   weight: {
@@ -51,6 +59,10 @@ export const S = {
     history: "היסטוריה",
     noHistory: "אין שקילות עדיין",
     kg: "ק\"ג",
+    current: "נוכחי",
+    target: "יעד",
+    remaining: "נותר",
+    errorSave: "שגיאה בשמירה. נסה שוב.",
   },
 
   workouts: {
@@ -141,10 +153,12 @@ export const S = {
     last30Days: "30 יום אחרונים",
     last7Days: "7 ימים אחרונים",
     noData: "אין נתונים מספיקים",
-    workoutsPerWeek: "אימונים בשבוע",
+    completedWorkouts: "אימונים הושלמו",
     avgProtein: "ממוצע חלבון",
     avgWeight: "ממוצע משקל",
     avgSteps: "ממוצע צעדים",
+    grams: "גרם",
+    steps: "צעדים",
   },
 
   settings: {
@@ -158,6 +172,10 @@ export const S = {
     hypertensionMeds: "נוטל תרופות ליתר לחץ דם",
     maxHeartRate: "דופק מקסימלי מותר",
     goals: "יעדים יומיים",
+    dailyCalories: "קלוריות יומי",
+    dailyProtein: "חלבון יומי (גרם)",
+    dailyCarbs: "פחמימות יומי (גרם)",
+    dailyFat: "שומן יומי (גרם)",
     googleCalendar: "יומן Google",
     connectCalendar: "חבר יומן",
     disconnectCalendar: "נתק יומן",
@@ -165,6 +183,8 @@ export const S = {
     calendarDisconnected: "היומן לא מחובר",
     notifications: "התראות",
     enableNotifications: "הפעל התראות",
+    notificationsActive: "התראות מופעלות",
+    notificationsBlocked: "התראות חסומות בדפדפן",
     importData: "ייבוא נתונים",
     importFromDrive: "ייבא מגוגל דרייב",
     importing: "מייבא...",
@@ -173,6 +193,7 @@ export const S = {
     save: "שמור",
     saving: "שומר...",
     saved: "נשמר",
+    errorSave: "שגיאה בשמירה.",
   },
 
   redRules: {
