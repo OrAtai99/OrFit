@@ -9,6 +9,7 @@ import type { NutritionLog } from "@/types";
 import { Card, Button, Input, useToast } from "@/components/ui";
 import { Beef, Wheat, Droplet, Flame, Footprints, AlertTriangle } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { getUserId } from "@/lib/use-user";
 
 export const dynamic = "force-dynamic";
 
@@ -86,9 +87,16 @@ export default function NutritionPage() {
 
   async function handleSave() {
     setSaving(true);
+    const userId = await getUserId();
+    if (!userId) {
+      setSaving(false);
+      toast.show(S.errors.auth, "error");
+      return;
+    }
     const supabase = createClient();
     const { error } = await supabase.from("nutrition_log").upsert(
       {
+        user_id: userId,
         date: todayISO(),
         calories: calories ? parseInt(calories) : null,
         protein_g: protein ? parseFloat(protein) : null,
@@ -101,7 +109,7 @@ export default function NutritionPage() {
     );
     setSaving(false);
     if (error) {
-      toast.show(S.settings.errorSave, "error");
+      toast.show(`שגיאה: ${error.message}`, "error");
     } else {
       toast.show(S.nutrition.saved, "success");
       await load();

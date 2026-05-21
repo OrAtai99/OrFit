@@ -9,6 +9,8 @@ import { useState, useEffect, useCallback } from "react";
 import type { Workout, WorkoutSet, WorkoutType } from "@/types";
 import { Card, Badge, Button, EmptyState } from "@/components/ui";
 import { Dumbbell, History, TrendingUp, Footprints, Bed, ChevronLeft } from "lucide-react";
+import { getUserId } from "@/lib/use-user";
+import { RestTimer } from "@/components/workout/RestTimer";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +48,8 @@ export default function WorkoutsPage() {
 
   async function startWorkout() {
     if (todaySchedule.type === "rest") return;
+    const userId = await getUserId();
+    if (!userId) return;
     const supabase = createClient();
 
     const { data: existing } = await supabase
@@ -60,7 +64,7 @@ export default function WorkoutsPage() {
     } else {
       const { data: created, error } = await supabase
         .from("workouts")
-        .insert({ date: todayISO(), type: todaySchedule.type, completed: false })
+        .insert({ user_id: userId, date: todayISO(), type: todaySchedule.type, completed: false })
         .select()
         .single();
       if (error || !created) return;
@@ -147,11 +151,13 @@ export default function WorkoutsPage() {
   }
 
   async function logWalkOrCompleted() {
+    const userId = await getUserId();
+    if (!userId) return;
     const supabase = createClient();
     const { error } = await supabase
       .from("workouts")
       .upsert(
-        { date: todayISO(), type: todaySchedule.type, completed: true },
+        { user_id: userId, date: todayISO(), type: todaySchedule.type, completed: true },
         { onConflict: "user_id,date" }
       );
     if (!error) await load();
@@ -430,6 +436,7 @@ function LoggerView({
           {S.common.back}
         </Button>
       </div>
+      <RestTimer />
     </PageWrapper>
   );
 }

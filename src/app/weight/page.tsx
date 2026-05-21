@@ -24,6 +24,7 @@ import {
 } from "recharts";
 import { Card, Button, Input, EmptyState, useToast } from "@/components/ui";
 import { Scale, TrendingDown, Target, CalendarClock } from "lucide-react";
+import { getUserId } from "@/lib/use-user";
 
 export const dynamic = "force-dynamic";
 
@@ -59,9 +60,16 @@ export default function WeightPage() {
   async function handleSave() {
     if (!weight || isNaN(parseFloat(weight))) return;
     setSaving(true);
+    const userId = await getUserId();
+    if (!userId) {
+      setSaving(false);
+      toast.show(S.errors.auth, "error");
+      return;
+    }
     const supabase = createClient();
     const { error } = await supabase.from("daily_weight").upsert(
       {
+        user_id: userId,
         date: todayISO(),
         weight_kg: parseFloat(weight),
         note: note || null,
@@ -70,7 +78,7 @@ export default function WeightPage() {
     );
     setSaving(false);
     if (error) {
-      toast.show(S.weight.errorSave, "error");
+      toast.show(`${S.weight.errorSave} ${error.message}`, "error");
     } else {
       toast.show(S.weight.saved, "success");
       await load();
