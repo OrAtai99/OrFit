@@ -16,7 +16,7 @@ import {
 import { getTodaySchedule, getNextWorkout } from "@/lib/exercises";
 import { useState, useEffect } from "react";
 import type { DailyWeight, NutritionLog, Workout } from "@/types";
-import { Card, Badge } from "@/components/ui";
+import { Card, Badge, AnimatedNumber } from "@/components/ui";
 import { CalendarWidget } from "@/components/dashboard/CalendarWidget";
 import {
   Flame,
@@ -262,7 +262,10 @@ function HeroProgress({
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <p className="text-4xl font-extrabold">{progress}<span className="text-lg">%</span></p>
+            <p className="text-4xl font-extrabold">
+              <AnimatedNumber value={progress} />
+              <span className="text-lg">%</span>
+            </p>
             <p className="text-[10px] uppercase tracking-widest text-white/70">{S.dashboard.target}</p>
           </div>
         </div>
@@ -276,11 +279,15 @@ function HeroProgress({
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="bg-white/10 rounded-lg px-2 py-1.5">
               <p className="text-white/60 text-[10px]">ירדת</p>
-              <p className="font-bold">{lost.toFixed(1)} {S.common.kg}</p>
+              <p className="font-bold">
+                <AnimatedNumber value={lost} decimals={1} /> {S.common.kg}
+              </p>
             </div>
             <div className="bg-white/10 rounded-lg px-2 py-1.5">
               <p className="text-white/60 text-[10px]">נותר</p>
-              <p className="font-bold">{remaining.toFixed(1)} {S.common.kg}</p>
+              <p className="font-bold">
+                <AnimatedNumber value={remaining} decimals={1} /> {S.common.kg}
+              </p>
             </div>
           </div>
           <p className="text-[11px] text-white/70 mt-2">עוד {daysLeft} ימים ליעד</p>

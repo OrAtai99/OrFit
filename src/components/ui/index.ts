@@ -6,3 +6,4 @@ export { Spinner } from "./Spinner";
 export { EmptyState } from "./EmptyState";
 export { Skeleton, CardSkeleton } from "./Skeleton";
 export { ToastProvider, useToast } from "./Toast";
+export { AnimatedNumber } from "./AnimatedNumber";

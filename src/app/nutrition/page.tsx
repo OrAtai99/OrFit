@@ -10,6 +10,7 @@ import { Card, Button, Input, useToast } from "@/components/ui";
 import { Beef, Wheat, Droplet, Flame, Footprints, AlertTriangle } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { getUserId } from "@/lib/use-user";
+import { QuickAddFoods } from "@/components/nutrition/QuickAddFoods";
 
 export const dynamic = "force-dynamic";
 
@@ -120,6 +121,18 @@ export default function NutritionPage() {
   const proteinVal = parseFloat(protein) || 0;
   const proteinWarning = isWorkoutDay && proteinVal > 0 && proteinVal < 150;
 
+  function handleQuickAdd(delta: { calories: number; protein: number; carbs: number; fat: number }) {
+    const curCal = parseInt(calories) || 0;
+    const curProtein = parseFloat(protein) || 0;
+    const curCarbs = parseFloat(carbs) || 0;
+    const curFat = parseFloat(fat) || 0;
+    setCalories(String(curCal + delta.calories));
+    setProtein(String(Math.round((curProtein + delta.protein) * 10) / 10));
+    setCarbs(String(Math.round((curCarbs + delta.carbs) * 10) / 10));
+    setFat(String(Math.round((curFat + delta.fat) * 10) / 10));
+    toast.show("נוסף, אל תשכח לשמור", "info");
+  }
+
   const macroFields = [
     { label: S.nutrition.calories, value: calories, set: setCalories, placeholder: "2092", icon: Flame },
     { label: S.nutrition.protein, value: protein, set: setProtein, placeholder: "190", icon: Beef },
@@ -185,6 +198,8 @@ export default function NutritionPage() {
             )}
           </Card>
         )}
+
+        <QuickAddFoods onAdd={handleQuickAdd} />
 
         <Card className="space-y-3">
           <h2 className="font-semibold">{entry ? S.nutrition.update : S.nutrition.today}</h2>
