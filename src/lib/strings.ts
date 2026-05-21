@@ -142,6 +142,20 @@ export const S = {
       carbs: 180,
       fat: 68,
     },
+    meals: {
+      breakfast: "ארוחת בוקר",
+      lunch: "צהריים",
+      pre_workout: "לפני אימון",
+      post_workout: "אחרי אימון",
+      dinner: "ערב",
+      snack: "נשנוש",
+    },
+    searchFood: "חפש מאכל",
+    searchPlaceholder: "חפש מאכל... (לדוגמה: חזה עוף)",
+    grams_unit: "גרם",
+    addToMeal: "הוסף ל",
+    noResults: "לא נמצאו מאכלים",
+    deleteEntry: "מחק",
   },
 
   stats: {

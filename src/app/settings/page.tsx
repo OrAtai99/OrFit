@@ -122,36 +122,71 @@ export default function SettingsPage() {
     }
   }
 
-  async function enableNotifications() {
-    if (!("Notification" in window)) return;
+  const [subscribed, setSubscribed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.ready.then(async (reg) => {
+      const sub = await reg.pushManager.getSubscription();
+      setSubscribed(!!sub);
+    });
+  }, []);
+
+  async function toggleNotifications() {
+    if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+      toast.show("הדפדפן לא תומך בהתראות push", "error");
+      return;
+    }
+
+    if (subscribed) {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await sub.unsubscribe();
+        const supabase = createClient();
+        await supabase.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+      }
+      setSubscribed(false);
+      toast.show("התראות כובו", "info");
+      return;
+    }
+
     const permission = await Notification.requestPermission();
     setNotifStatus(permission as "default" | "granted" | "denied");
     if (permission === "denied") {
       toast.show(S.settings.notificationsBlocked, "error");
       return;
     }
-    if (permission === "granted" && "serviceWorker" in navigator) {
-      const reg = await navigator.serviceWorker.ready;
-      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-      if (!vapidKey) return;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: vapidKey,
-      });
-      const supabase = createClient();
-      const key = sub.getKey("p256dh");
-      const auth = sub.getKey("auth");
-      if (key && auth) {
-        await supabase.from("push_subscriptions").upsert(
-          {
-            endpoint: sub.endpoint,
-            p256dh: btoa(String.fromCharCode(...Array.from(new Uint8Array(key)))),
-            auth: btoa(String.fromCharCode(...Array.from(new Uint8Array(auth)))),
-          },
-          { onConflict: "user_id" }
-        );
-        toast.show(S.settings.notificationsActive, "success");
+    if (permission !== "granted") return;
+
+    const reg = await navigator.serviceWorker.ready;
+    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!vapidKey) {
+      toast.show("חסר VAPID key", "error");
+      return;
+    }
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: vapidKey,
+    });
+    const supabase = createClient();
+    const key = sub.getKey("p256dh");
+    const auth = sub.getKey("auth");
+    if (key && auth) {
+      const { error } = await supabase.from("push_subscriptions").upsert(
+        {
+          endpoint: sub.endpoint,
+          p256dh: btoa(String.fromCharCode(...Array.from(new Uint8Array(key)))),
+          auth: btoa(String.fromCharCode(...Array.from(new Uint8Array(auth)))),
+        },
+        { onConflict: "user_id" }
+      );
+      if (error) {
+        toast.show("שגיאה: " + error.message, "error");
+        return;
       }
+      setSubscribed(true);
+      toast.show(S.settings.notificationsActive, "success");
     }
   }
 
@@ -313,18 +348,35 @@ export default function SettingsPage() {
           <h2 className="font-semibold mb-3 flex items-center gap-2">
             <Bell size={18} className="text-primary" /> {S.settings.notifications}
           </h2>
-          {notifStatus === "granted" ? (
-            <p className="text-sm text-success flex items-center gap-2">
-              <BellRing size={16} /> {S.settings.notificationsActive}
-            </p>
-          ) : notifStatus === "denied" ? (
+          {notifStatus === "denied" ? (
             <p className="text-sm text-danger flex items-center gap-2">
               <BellOff size={16} /> {S.settings.notificationsBlocked}
             </p>
           ) : (
-            <Button onClick={enableNotifications} variant="secondary" fullWidth>
-              <Bell size={16} /> {S.settings.enableNotifications}
-            </Button>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm">
+                {subscribed ? (
+                  <BellRing size={16} className="text-success" />
+                ) : (
+                  <Bell size={16} className="text-muted" />
+                )}
+                <span>{subscribed ? S.settings.notificationsActive : S.settings.enableNotifications}</span>
+              </div>
+              <button
+                role="switch"
+                aria-checked={subscribed}
+                onClick={toggleNotifications}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  subscribed ? "bg-success" : "bg-[var(--border)]"
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                    subscribed ? "-translate-x-5" : "-translate-x-0.5"
+                  }`}
+                />
+              </button>
+            </div>
           )}
         </Card>
 

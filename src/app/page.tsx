@@ -12,6 +12,8 @@ import {
   weeklyWeightDelta,
   predictedDaysToGoal,
   dayNameHe,
+  streakOf,
+  workoutStreak as calcWorkoutStreak,
 } from "@/lib/calculations";
 import { getTodaySchedule, getNextWorkout } from "@/lib/exercises";
 import { useState, useEffect } from "react";
@@ -19,6 +21,7 @@ import type { DailyWeight, NutritionLog, Workout } from "@/types";
 import { Card, Badge, AnimatedNumber } from "@/components/ui";
 import { CalendarWidget } from "@/components/dashboard/CalendarWidget";
 import { TodayExercisesPreview } from "@/components/dashboard/TodayExercisesPreview";
+import { StreakCards } from "@/components/dashboard/StreakCards";
 import {
   Flame,
   TrendingDown,
@@ -58,6 +61,8 @@ export default function DashboardPage() {
   const [allWeights, setAllWeights] = useState<DailyWeight[]>([]);
   const [todayNutrition, setTodayNutrition] = useState<NutritionLog | null>(null);
   const [todayWorkout, setTodayWorkout] = useState<Workout | null>(null);
+  const [allNutrition, setAllNutrition] = useState<NutritionLog[]>([]);
+  const [allWorkouts, setAllWorkouts] = useState<Workout[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -66,10 +71,14 @@ export default function DashboardPage() {
       supabase.from("daily_weight").select("*").order("date", { ascending: false }).limit(30),
       supabase.from("nutrition_log").select("*").eq("date", todayISO()).maybeSingle(),
       supabase.from("workouts").select("*").eq("date", todayISO()).maybeSingle(),
-    ]).then(([w, n, wo]) => {
+      supabase.from("nutrition_log").select("*").order("date", { ascending: false }).limit(60),
+      supabase.from("workouts").select("*").order("date", { ascending: false }).limit(30),
+    ]).then(([w, n, wo, allN, allW]) => {
       if (w.data) setAllWeights(w.data);
       if (n.data) setTodayNutrition(n.data);
       if (wo.data) setTodayWorkout(wo.data);
+      if (allN.data) setAllNutrition(allN.data);
+      if (allW.data) setAllWorkouts(allW.data);
       setLoaded(true);
     });
   }, []);
@@ -86,6 +95,15 @@ export default function DashboardPage() {
   const calories = todayNutrition?.calories ?? 0;
   const proteinWarning = isWorkoutDay && loaded && todayNutrition !== null && protein > 0 && protein < 150;
   const streak = weighingStreak(allWeights.map((w) => w.date));
+  const proteinStreak = streakOf(
+    allNutrition.map((n) => ({ date: n.date, value: n.protein_g })),
+    150
+  );
+  const stepsStreak = streakOf(
+    allNutrition.map((n) => ({ date: n.date, value: n.steps })),
+    10000
+  );
+  const workoutStreakCount = calcWorkoutStreak(allWorkouts);
   const weekDelta = weeklyWeightDelta(allWeights);
   const etaDays = predictedDaysToGoal(allWeights, TARGET);
   const todayName = dayNameHe(todayISO());
@@ -181,6 +199,13 @@ export default function DashboardPage() {
             </div>
           </Card>
         )}
+
+        <StreakCards
+          proteinStreak={proteinStreak}
+          stepsStreak={stepsStreak}
+          workoutStreak={workoutStreakCount}
+          weighingStreak={streak}
+        />
 
         <div className="grid grid-cols-2 gap-3">
           <StatLink

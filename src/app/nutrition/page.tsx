@@ -7,10 +7,13 @@ import { todayISO, isWorkoutDayByDate } from "@/lib/calculations";
 import { useState, useEffect, useCallback } from "react";
 import type { NutritionLog } from "@/types";
 import { Card, Button, Input, useToast } from "@/components/ui";
-import { Beef, Wheat, Droplet, Flame, Footprints, AlertTriangle } from "lucide-react";
+import { Beef, Wheat, Droplet, Flame, Footprints, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { getUserId } from "@/lib/use-user";
 import { QuickAddFoods } from "@/components/nutrition/QuickAddFoods";
+import { FoodSearchModal } from "@/components/nutrition/FoodSearchModal";
+import { MealSections } from "@/components/nutrition/MealSections";
+import type { FoodEntry, MealType } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -76,7 +79,7 @@ function MacroBar({ label, current, goal, unit, color, icon: Icon }: MacroBarPro
 
 export default function NutritionPage() {
   const toast = useToast();
-  const [entry, setEntry] = useState<NutritionLog | null>(null);
+  const [, setEntry] = useState<NutritionLog | null>(null);
   const [calories, setCalories] = useState("");
   const [protein, setProtein] = useState("");
   const [carbs, setCarbs] = useState("");
@@ -84,24 +87,109 @@ export default function NutritionPage() {
   const [steps, setSteps] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [foodEntries, setFoodEntries] = useState<FoodEntry[]>([]);
+  const [searchMeal, setSearchMeal] = useState<MealType | null>(null);
+  const [manualOpen, setManualOpen] = useState(false);
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const { data } = await supabase
-      .from("nutrition_log")
-      .select("*")
-      .eq("date", todayISO())
-      .maybeSingle();
-    if (data) {
-      setEntry(data);
-      setCalories(String(data.calories ?? ""));
-      setProtein(String(data.protein_g ?? ""));
-      setCarbs(String(data.carbs_g ?? ""));
-      setFat(String(data.fat_g ?? ""));
-      setSteps(String(data.steps ?? ""));
-      setNotes(data.notes ?? "");
+    const [logRes, entriesRes] = await Promise.all([
+      supabase.from("nutrition_log").select("*").eq("date", todayISO()).maybeSingle(),
+      supabase
+        .from("nutrition_food_entries")
+        .select("*")
+        .eq("date", todayISO())
+        .order("created_at", { ascending: true }),
+    ]);
+    if (logRes.data) {
+      setEntry(logRes.data);
+      setCalories(String(logRes.data.calories ?? ""));
+      setProtein(String(logRes.data.protein_g ?? ""));
+      setCarbs(String(logRes.data.carbs_g ?? ""));
+      setFat(String(logRes.data.fat_g ?? ""));
+      setSteps(String(logRes.data.steps ?? ""));
+      setNotes(logRes.data.notes ?? "");
+    }
+    if (entriesRes.data) {
+      setFoodEntries(entriesRes.data as FoodEntry[]);
     }
   }, []);
+
+  async function recomputeFromEntries(allEntries: FoodEntry[]) {
+    const totals = allEntries.reduce(
+      (acc, e) => ({
+        cal: acc.cal + e.calories,
+        p: acc.p + e.protein,
+        c: acc.c + e.carbs,
+        f: acc.f + e.fat,
+      }),
+      { cal: 0, p: 0, c: 0, f: 0 }
+    );
+    const userId = await getUserId();
+    if (!userId) return;
+    const supabase = createClient();
+    await supabase.from("nutrition_log").upsert(
+      {
+        user_id: userId,
+        date: todayISO(),
+        calories: Math.round(totals.cal),
+        protein_g: Math.round(totals.p * 10) / 10,
+        carbs_g: Math.round(totals.c * 10) / 10,
+        fat_g: Math.round(totals.f * 10) / 10,
+        steps: steps ? parseInt(steps) : null,
+        notes: notes || null,
+      },
+      { onConflict: "user_id,date" }
+    );
+    setCalories(String(Math.round(totals.cal)));
+    setProtein(String(Math.round(totals.p * 10) / 10));
+    setCarbs(String(Math.round(totals.c * 10) / 10));
+    setFat(String(Math.round(totals.f * 10) / 10));
+  }
+
+  async function addFoodEntry(mealType: MealType, food: {
+    food_code: string | null;
+    food_name: string;
+    brand: string | null;
+    grams: number;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  }) {
+    const userId = await getUserId();
+    if (!userId) {
+      toast.show(S.errors.auth, "error");
+      return;
+    }
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("nutrition_food_entries")
+      .insert({
+        user_id: userId,
+        date: todayISO(),
+        meal_type: mealType,
+        ...food,
+      })
+      .select()
+      .single();
+    if (error) {
+      toast.show("שגיאה: " + error.message, "error");
+      return;
+    }
+    const next = [...foodEntries, data as FoodEntry];
+    setFoodEntries(next);
+    await recomputeFromEntries(next);
+    toast.show("נוסף!", "success");
+  }
+
+  async function deleteFoodEntry(id: string) {
+    const supabase = createClient();
+    await supabase.from("nutrition_food_entries").delete().eq("id", id);
+    const next = foodEntries.filter((e) => e.id !== id);
+    setFoodEntries(next);
+    await recomputeFromEntries(next);
+  }
 
   useEffect(() => {
     load();
@@ -224,38 +312,63 @@ export default function NutritionPage() {
           />
         </Card>
 
+        <MealSections
+          entries={foodEntries}
+          onAdd={(meal) => setSearchMeal(meal)}
+          onDelete={deleteFoodEntry}
+        />
+
         <QuickAddFoods onAdd={handleQuickAdd} />
 
-        <Card className="space-y-3">
-          <h2 className="font-semibold">{entry ? S.nutrition.update : S.nutrition.today}</h2>
+        <button
+          onClick={() => setManualOpen((o) => !o)}
+          className="w-full flex items-center justify-between px-4 py-2 text-sm text-muted hover:text-[var(--foreground)]"
+        >
+          <span>הזנה ידנית של מאקרו / צעדים</span>
+          {manualOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
 
-          {macroFields.map(({ label, value, set, placeholder, icon: Icon }) => (
-            <div key={label} className="flex items-center gap-3">
-              <Icon size={18} className="text-muted shrink-0" />
-              <label className="text-sm text-muted w-16 shrink-0">{label}</label>
-              <Input
-                type="number"
-                min="0"
-                value={value}
-                onChange={(e) => set(e.target.value)}
-                placeholder={placeholder}
-              />
-            </div>
-          ))}
+        {manualOpen && (
+          <Card className="space-y-3">
+            {macroFields.map(({ label, value, set, placeholder, icon: Icon }) => (
+              <div key={label} className="flex items-center gap-3">
+                <Icon size={18} className="text-muted shrink-0" />
+                <label className="text-sm text-muted w-16 shrink-0">{label}</label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={value}
+                  onChange={(e) => set(e.target.value)}
+                  placeholder={placeholder}
+                />
+              </div>
+            ))}
 
-          <Input
-            type="text"
-            placeholder={S.nutrition.notes}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            inputSize="sm"
-          />
+            <Input
+              type="text"
+              placeholder={S.nutrition.notes}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              inputSize="sm"
+            />
 
-          <Button onClick={handleSave} loading={saving} variant="primary" size="lg" fullWidth>
-            {saving ? S.nutrition.saving : S.nutrition.save}
-          </Button>
-        </Card>
+            <Button onClick={handleSave} loading={saving} variant="primary" size="lg" fullWidth>
+              {saving ? S.nutrition.saving : S.nutrition.save}
+            </Button>
+          </Card>
+        )}
       </div>
+
+      {searchMeal && (
+        <FoodSearchModal
+          mealType={searchMeal}
+          onClose={() => setSearchMeal(null)}
+          onSelect={(food) => {
+            addFoodEntry(searchMeal, food);
+            setSearchMeal(null);
+          }}
+        />
+      )}
     </PageWrapper>
   );
 }

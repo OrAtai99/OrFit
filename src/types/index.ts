@@ -99,6 +99,34 @@ export interface PushSubscription {
   created_at: string;
 }
 
+export type MealType = "breakfast" | "lunch" | "pre_workout" | "post_workout" | "dinner" | "snack";
+
+export interface FoodEntry {
+  id: string;
+  user_id: string;
+  date: string;
+  meal_type: MealType;
+  food_code: string | null;
+  food_name: string;
+  brand: string | null;
+  grams: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  created_at: string;
+}
+
+export interface ProgressPhoto {
+  id: string;
+  user_id: string;
+  date: string;
+  storage_path: string;
+  weight_at_time: number | null;
+  notes: string | null;
+  created_at: string;
+}
+
 export interface ExerciseTemplate {
   name: string;
   sets: number[];

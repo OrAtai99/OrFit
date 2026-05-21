@@ -53,29 +53,71 @@ export default function CoachPage() {
   useEffect(() => {
     const supabase = createClient();
     Promise.all([
-      supabase.from("daily_weight").select("*").order("date", { ascending: false }).limit(1).maybeSingle(),
-      supabase.from("nutrition_log").select("*").eq("date", todayISO()).maybeSingle(),
-      supabase.from("workouts").select("*").eq("date", todayISO()).maybeSingle(),
-    ]).then(([w, n, wo]) => {
-      const weight = (w.data as DailyWeight | null)?.weight_kg;
-      const nutrition = n.data as NutritionLog | null;
-      const workout = wo.data as Workout | null;
+      supabase.from("daily_weight").select("*").order("date", { ascending: false }).limit(3),
+      supabase.from("nutrition_log").select("*").order("date", { ascending: false }).limit(7),
+      supabase.from("workouts").select("*, workout_sets(*)").order("date", { ascending: false }).limit(5),
+    ]).then(([wRes, nRes, woRes]) => {
+      const weights = (wRes.data as DailyWeight[]) ?? [];
+      const nutritionList = (nRes.data as NutritionLog[]) ?? [];
+      const workouts = (woRes.data as (Workout & { workout_sets: { weight_kg: number | null; reps: number | null; exercise_name: string; set_number: number }[] })[]) ?? [];
       const schedule = getTodaySchedule();
       const isWorkoutDay = isWorkoutDayByDate(todayISO());
+      const today = todayISO();
+      const todayNutrition = nutritionList.find((n) => n.date === today);
+      const todayWorkout = workouts.find((w) => w.date === today);
 
       const parts: string[] = [];
-      if (weight) parts.push(`משקל אחרון: ${weight} ק"ג`);
-      parts.push(`היום: ${schedule.type === "rest" ? "מנוחה" : schedule.type === "walk" ? "הליכה" : schedule.type.toUpperCase()}`);
-      if (isWorkoutDay) parts.push("יום אימון");
-      if (nutrition) {
+
+      // Today
+      parts.push(`היום: ${schedule.type === "rest" ? "מנוחה" : schedule.type === "walk" ? "הליכה" : schedule.type.toUpperCase()}${isWorkoutDay ? " (יום אימון)" : ""}`);
+
+      // Recent weights
+      if (weights.length > 0) {
+        const recent = weights.map((w) => `${w.date.slice(5)}=${w.weight_kg}ק"ג`).join(", ");
+        parts.push(`שקילות אחרונות: ${recent}`);
+        if (weights.length >= 2) {
+          const delta = Math.round((weights[0].weight_kg - weights[weights.length - 1].weight_kg) * 10) / 10;
+          parts.push(`שינוי ב-${weights.length} שקילות אחרונות: ${delta > 0 ? "+" : ""}${delta}ק"ג`);
+        }
+      }
+
+      // Today's nutrition
+      if (todayNutrition) {
         parts.push(
-          `תזונה היום: ${nutrition.calories ?? 0} קק"ל, ${nutrition.protein_g ?? 0}g חלבון, ${nutrition.steps ?? 0} צעדים`
+          `תזונה היום: ${todayNutrition.calories ?? 0} קק"ל / ${todayNutrition.protein_g ?? 0}g חלבון / ${todayNutrition.carbs_g ?? 0}g פחמ' / ${todayNutrition.fat_g ?? 0}g שומן / ${todayNutrition.steps ?? 0} צעדים`
         );
       } else {
         parts.push("עוד לא הוזנה תזונה היום");
       }
-      if (workout?.completed) parts.push("האימון של היום סומן הושלם");
-      setContext(parts.join(" | "));
+
+      // 7-day macro averages
+      const valid = nutritionList.filter((n) => n.calories !== null);
+      if (valid.length >= 3) {
+        const avg = (key: keyof NutritionLog) =>
+          Math.round(valid.reduce((s, n) => s + ((n[key] as number) ?? 0), 0) / valid.length);
+        parts.push(
+          `ממוצע 7 ימים: ${avg("calories")} קק"ל / ${avg("protein_g")}g חלבון / ${avg("steps")} צעדים`
+        );
+      }
+
+      // Recent workouts
+      const completed = workouts.filter((w) => w.completed);
+      if (completed.length > 0) {
+        const summary = completed
+          .slice(0, 3)
+          .map((w) => {
+            const heaviest = w.workout_sets
+              .filter((s) => s.weight_kg)
+              .sort((a, b) => (b.weight_kg ?? 0) - (a.weight_kg ?? 0))[0];
+            return `${w.date.slice(5)} ${w.type}${heaviest ? ` (כבד ביותר: ${heaviest.exercise_name} ${heaviest.weight_kg}ק"ג×${heaviest.reps ?? "?"})` : ""}`;
+          })
+          .join(" | ");
+        parts.push(`אימונים אחרונים: ${summary}`);
+      }
+
+      if (todayWorkout?.completed) parts.push("האימון של היום סומן הושלם");
+
+      setContext(parts.join("\n"));
     });
   }, []);
 

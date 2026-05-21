@@ -116,3 +116,40 @@ export function predictedDaysToGoal(
 export function workoutVolume(sets: { weight_kg: number | null; reps: number | null }[]): number {
   return sets.reduce((sum, s) => sum + (s.weight_kg ?? 0) * (s.reps ?? 0), 0);
 }
+
+export function streakOf(
+  entries: { date: string; value: number | null }[],
+  target: number
+): number {
+  const map = new Map(entries.map((e) => [e.date, e.value ?? 0]));
+  let streak = 0;
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  for (let i = 0; i < 120; i++) {
+    const iso = cursor.toISOString().slice(0, 10);
+    const val = map.get(iso);
+    if (val === undefined || val < target) break;
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+export function workoutStreak(workouts: { date: string; completed: boolean }[]): number {
+  // counts consecutive workout-days (Mon/Tue/Thu/Fri) that were completed,
+  // skipping rest days.
+  const completed = new Set(workouts.filter((w) => w.completed).map((w) => w.date));
+  let streak = 0;
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  for (let i = 0; i < 60; i++) {
+    const day = cursor.getDay();
+    const iso = cursor.toISOString().slice(0, 10);
+    if ([1, 2, 4, 5].includes(day)) {
+      if (!completed.has(iso)) break;
+      streak++;
+    }
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}

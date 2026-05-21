@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Settings, BarChart2 } from "lucide-react";
+import { Settings, BarChart2, Camera } from "lucide-react";
 import BottomNav from "./BottomNav";
 
 interface PageWrapperProps {
@@ -19,6 +19,13 @@ export default function PageWrapper({
         <header className="sticky top-0 z-40 bg-[var(--card)]/90 glass border-b border-[var(--border)] px-4 py-3 flex items-center justify-between">
           <h1 className="text-lg font-bold text-[var(--foreground)]">{title}</h1>
           <div className="flex items-center gap-1">
+            <Link
+              href="/progress"
+              className="text-muted hover:text-primary p-2 -m-2 transition-colors"
+              aria-label="תמונות התקדמות"
+            >
+              <Camera size={20} />
+            </Link>
             <Link
               href="/stats"
               className="text-muted hover:text-primary p-2 -m-2 transition-colors"
