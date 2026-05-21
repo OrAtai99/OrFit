@@ -11,6 +11,7 @@ import { Card, Badge, Button, EmptyState } from "@/components/ui";
 import { Dumbbell, History, TrendingUp, Footprints, Bed, ChevronLeft } from "lucide-react";
 import { getUserId } from "@/lib/use-user";
 import { RestTimer } from "@/components/workout/RestTimer";
+import { TodayExercisesPreview } from "@/components/dashboard/TodayExercisesPreview";
 
 export const dynamic = "force-dynamic";
 
@@ -262,6 +263,9 @@ export default function WorkoutsPage() {
               <Badge variant="success">✓ {S.dashboard.completed}</Badge>
             )}
           </div>
+          {todaySchedule.type !== "rest" && todaySchedule.type !== "walk" && (
+            <TodayExercisesPreview type={todaySchedule.type} />
+          )}
         </Card>
 
         <Card>

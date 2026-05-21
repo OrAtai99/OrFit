@@ -28,26 +28,47 @@ type MacroBarProps = {
 function MacroBar({ label, current, goal, unit, color, icon: Icon }: MacroBarProps) {
   const pct = Math.min(100, Math.round((current / goal) * 100));
   const over = current > goal;
+  const remaining = Math.max(0, goal - current);
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-2">
-          <Icon size={14} style={{ color }} />
-          <span className="text-sm font-medium">{label}</span>
+          <div
+            className="w-7 h-7 rounded-lg flex items-center justify-center"
+            style={{ backgroundColor: color + "22" }}
+          >
+            <Icon size={14} style={{ color }} />
+          </div>
+          <span className="text-sm font-semibold">{label}</span>
         </div>
-        <span className="text-xs text-muted">
-          <span className={over ? "text-danger font-semibold" : "font-semibold text-[var(--foreground)]"}>
-            {current}
-          </span>
-          {" / "}
-          {goal} {unit}
-        </span>
+        <div className="text-left">
+          <p className="text-sm">
+            <span className={over ? "text-danger font-bold" : "font-bold"} style={over ? {} : { color }}>
+              {Math.round(current * 10) / 10}
+            </span>
+            <span className="text-muted"> / {goal} {unit}</span>
+          </p>
+          <p className="text-[10px] text-muted">
+            {over ? `+${Math.round((current - goal) * 10) / 10} מעבר ליעד` : `${remaining} נותר`}
+          </p>
+        </div>
       </div>
-      <div className="h-2 bg-[var(--border)] rounded-full overflow-hidden">
+      <div className="relative h-3 bg-[var(--border)]/50 rounded-full overflow-hidden">
         <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{ width: pct + "%", backgroundColor: color }}
+          className="absolute inset-y-0 right-0 rounded-full transition-all duration-700 ease-out"
+          style={{
+            width: pct + "%",
+            background: `linear-gradient(90deg, ${color}cc, ${color})`,
+            boxShadow: `0 0 8px ${color}66`,
+          }}
         />
+        {pct < 100 && (
+          <div
+            className="absolute inset-y-0 w-0.5 bg-[var(--foreground)]/30"
+            style={{ right: "100%" }}
+          />
+        )}
       </div>
     </div>
   );

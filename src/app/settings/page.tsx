@@ -7,7 +7,7 @@ import { S } from "@/lib/strings";
 import { useState, useEffect, useCallback } from "react";
 import type { Profile } from "@/types";
 import { Card, Button, useToast } from "@/components/ui";
-import { Bell, BellOff, BellRing, LogOut, User, Target } from "lucide-react";
+import { Bell, BellOff, BellRing, LogOut, User, Target, Calendar, CheckCircle2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +28,27 @@ export default function SettingsPage() {
   const [maxHR, setMaxHR] = useState("145");
   const [saving, setSaving] = useState(false);
   const [notifStatus, setNotifStatus] = useState<"default" | "granted" | "denied">("default");
+  const [calendarConnected, setCalendarConnected] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch("/api/calendar?days=1")
+      .then((r) => r.json())
+      .then((d) => setCalendarConnected(!d.error))
+      .catch(() => setCalendarConnected(false));
+  }, []);
+
+  async function connectCalendar() {
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=/settings`,
+        scopes: "https://www.googleapis.com/auth/calendar.readonly",
+        queryParams: { access_type: "offline", prompt: "consent" },
+      },
+    });
+    if (error) toast.show("שגיאה: " + error.message, "error");
+  }
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -267,6 +288,26 @@ export default function SettingsPage() {
         <Button onClick={saveProfile} loading={saving} variant="primary" size="lg" fullWidth>
           {saving ? S.settings.saving : S.settings.save}
         </Button>
+
+        <Card>
+          <h2 className="font-semibold mb-3 flex items-center gap-2">
+            <Calendar size={18} className="text-primary" /> {S.settings.googleCalendar}
+          </h2>
+          {calendarConnected ? (
+            <p className="text-sm text-success flex items-center gap-2">
+              <CheckCircle2 size={16} /> {S.settings.calendarConnected}
+            </p>
+          ) : (
+            <>
+              <p className="text-xs text-muted mb-3">
+                חבר את יומן Google כדי לראות את אימוני השבוע על הדשבורד.
+              </p>
+              <Button onClick={connectCalendar} variant="secondary" fullWidth>
+                <Calendar size={16} /> {S.settings.connectCalendar}
+              </Button>
+            </>
+          )}
+        </Card>
 
         <Card>
           <h2 className="font-semibold mb-3 flex items-center gap-2">

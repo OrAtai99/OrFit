@@ -16,35 +16,23 @@ interface CalendarEvent {
 
 export function CalendarWidget() {
   const [events, setEvents] = useState<CalendarEvent[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/calendar?days=3")
       .then((r) => r.json())
       .then((d) => {
-        if (d.error) setError(d.error);
-        setEvents(d.events ?? []);
+        // Silently hide on any error (missing token, scope not granted, etc).
+        // Connect button lives in /settings.
+        setEvents(d.error ? [] : (d.events ?? []));
       })
-      .catch(() => setError("שגיאת תקשורת"));
+      .catch(() => setEvents([]));
   }, []);
 
   if (events === null) return null;
+  if (events.length === 0) return null;
 
   const todayIso = new Date().toISOString().slice(0, 10);
   const todayEvents = events.filter((e) => e.start.startsWith(todayIso));
-
-  if (error && events.length === 0) {
-    return (
-      <Card className="text-sm">
-        <div className="flex items-center gap-2 text-muted">
-          <Calendar size={16} />
-          <span>{error}</span>
-        </div>
-      </Card>
-    );
-  }
-
-  if (events.length === 0) return null;
 
   const displayEvents = todayEvents.length > 0 ? todayEvents : events.slice(0, 3);
   const isToday = todayEvents.length > 0;

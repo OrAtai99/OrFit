@@ -131,11 +131,14 @@ export default function DashboardPage() {
           </Card>
         )}
 
-        {noWeightToday && (
+        {noWeightToday && latestWeight && (
           <Card variant="primary" className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Scale size={18} className="text-primary" />
-              <p className="text-sm font-medium">לא שקלת היום</p>
+              <div>
+                <p className="text-sm font-medium">שקלת לפני {daysSinceWeighing(latestWeight.date)}</p>
+                <p className="text-xs text-muted">זמן לשקילה</p>
+              </div>
             </div>
             <Link
               href="/weight"
@@ -181,14 +184,6 @@ export default function DashboardPage() {
 
         <div className="grid grid-cols-2 gap-3">
           <StatLink
-            href="/weight"
-            label={S.dashboard.currentWeight}
-            value={latestWeight ? String(latestWeight.weight_kg) : "—"}
-            unit={S.common.kg}
-            icon={Scale}
-            tone="primary"
-          />
-          <StatLink
             href="/nutrition"
             label={S.dashboard.todayProtein}
             value={protein > 0 ? String(protein) : "—"}
@@ -202,14 +197,6 @@ export default function DashboardPage() {
             value={calories > 0 ? String(calories) : "—"}
             unit={S.common.kcal}
             icon={Flame}
-            tone="muted"
-          />
-          <StatLink
-            href="/workouts"
-            label={S.dashboard.daysLeft}
-            value={String(daysLeft)}
-            unit={S.common.days}
-            icon={CalendarClock}
             tone="muted"
           />
         </div>
@@ -395,6 +382,17 @@ function StatLink({
       </p>
     </Link>
   );
+}
+
+function daysSinceWeighing(dateStr: string): string {
+  const last = new Date(dateStr);
+  const now = new Date();
+  last.setHours(0, 0, 0, 0);
+  now.setHours(0, 0, 0, 0);
+  const days = Math.round((now.getTime() - last.getTime()) / 86400000);
+  if (days === 1) return "יום";
+  if (days === 2) return "יומיים";
+  return `${days} ימים`;
 }
 
 function buildInsight({

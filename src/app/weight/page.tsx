@@ -174,6 +174,15 @@ export default function WeightPage() {
           </Card>
         )}
 
+        {chartData.length === 1 && (
+          <Card variant="primary" className="flex items-center gap-3">
+            <TrendingDown size={20} className="text-primary shrink-0" />
+            <p className="text-sm">
+              שקול עוד יום או שניים — הגרף יופיע אוטומטית כשתהיה מגמה למדידה.
+            </p>
+          </Card>
+        )}
+
         {chartData.length > 1 && (
           <Card>
             <p className="text-sm font-medium mb-3">{S.weight.chart30Days}</p>
