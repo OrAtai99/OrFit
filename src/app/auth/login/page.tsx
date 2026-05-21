@@ -34,11 +34,6 @@ function LoginForm() {
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
           skipBrowserRedirect: true,
-          scopes: "https://www.googleapis.com/auth/calendar.readonly",
-          queryParams: {
-            access_type: "offline",
-            prompt: "consent",
-          },
         },
       });
       if (error) {
