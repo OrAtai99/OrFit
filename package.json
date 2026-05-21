@@ -11,7 +11,7 @@
     "check-db": "node scripts/run-migration.mjs"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.5.2",
+    "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.1",
     "googleapis": "^140.0.1",
     "lucide-react": "^0.400.0",
