@@ -51,19 +51,35 @@ export default function WorkoutsPage() {
   async function startWorkout() {
     if (todaySchedule.type === "rest") return;
     const supabase = createClient();
-    const { data, error } = await supabase
-      .from("workouts")
-      .upsert({ date: todayISO(), type: todaySchedule.type, completed: false }, { onConflict: "user_id,date" })
-      .select()
-      .single();
 
-    if (!error && data) {
+    const { data: existing } = await supabase
+      .from("workouts")
+      .select("*, workout_sets(*)")
+      .eq("date", todayISO())
+      .maybeSingle();
+
+    let workout: Workout & { workout_sets: WorkoutSet[] };
+    if (existing) {
+      workout = existing as Workout & { workout_sets: WorkoutSet[] };
+    } else {
+      const { data: created, error } = await supabase
+        .from("workouts")
+        .insert({ date: todayISO(), type: todaySchedule.type, completed: false })
+        .select()
+        .single();
+      if (error || !created) return;
+      workout = { ...(created as Workout), workout_sets: [] };
+    }
+
+    const existingSets = workout.workout_sets ?? [];
+
+    if (existingSets.length === 0) {
       const template = getTemplateForType(todaySchedule.type);
       const prefilledSets: object[] = [];
       template?.exercises.forEach((ex) => {
         ex.sets.forEach((w, i) => {
           prefilledSets.push({
-            workout_id: data.id,
+            workout_id: workout.id,
             exercise_name: ex.name,
             set_number: i + 1,
             weight_kg: w,
@@ -73,18 +89,20 @@ export default function WorkoutsPage() {
           });
         });
       });
-
       if (prefilledSets.length > 0) {
         await supabase.from("workout_sets").insert(prefilledSets);
       }
-
-      const { data: freshSets } = await supabase.from("workout_sets").select("*").eq("workout_id", data.id);
-      const typedSets: WorkoutSet[] = (freshSets as WorkoutSet[]) ?? [];
-      const workout: WorkoutWithSets = { ...data, sets: typedSets };
-      setActiveWorkout(workout);
-      setView("logger");
-      await load();
     }
+
+    const { data: freshSets } = await supabase
+      .from("workout_sets")
+      .select("*")
+      .eq("workout_id", workout.id)
+      .order("set_number");
+    const typedSets: WorkoutSet[] = (freshSets as WorkoutSet[]) ?? [];
+    setActiveWorkout({ ...workout, sets: typedSets });
+    setView("logger");
+    await load();
   }
 
   async function updateSet(setId: string, field: "weight_kg" | "reps" | "duration_seconds", value: number | null) {
