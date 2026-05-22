@@ -10,6 +10,7 @@ import {
   dayNameHe,
   todayISO,
   predictedDaysToGoal,
+  num,
 } from "@/lib/calculations";
 import { useState, useEffect, useCallback } from "react";
 import type { DailyWeight } from "@/types";
@@ -89,13 +90,13 @@ export default function WeightPage() {
   const avgArr = movingAverage(weights, 7);
   const chartData = entries.map((e, i) => ({
     date: formatDateShort(e.date),
-    weight: e.weight_kg,
+    weight: num(e.weight_kg),
     avg: avgArr[i],
   }));
 
-  const latestWeight = entries.length > 0 ? entries[entries.length - 1].weight_kg : null;
+  const latestWeight = entries.length > 0 ? num(entries[entries.length - 1].weight_kg) : null;
   const etaDays = predictedDaysToGoal(entries, TARGET);
-  const remaining = latestWeight ? Math.max(0, latestWeight - TARGET) : 0;
+  const remaining = latestWeight !== null ? Math.max(0, latestWeight - TARGET) : 0;
 
   return (
     <PageWrapper title={S.weight.title}>
@@ -243,7 +244,7 @@ export default function WeightPage() {
             <div className="space-y-1 max-h-72 overflow-y-auto -mx-2">
               {[...entries].reverse().map((e, i, arr) => {
                 const prev = arr[i + 1];
-                const delta = prev ? Math.round((e.weight_kg - prev.weight_kg) * 10) / 10 : null;
+                const delta = prev ? Math.round((num(e.weight_kg) - num(prev.weight_kg)) * 10) / 10 : null;
                 return (
                   <div
                     key={e.id}

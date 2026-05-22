@@ -3,7 +3,7 @@
 import PageWrapper from "@/components/layout/PageWrapper";
 import { S } from "@/lib/strings";
 import { createClient } from "@/lib/supabase/client";
-import { todayISO, isWorkoutDayByDate } from "@/lib/calculations";
+import { todayISO, isWorkoutDayByDate, num } from "@/lib/calculations";
 import { useState, useEffect, useCallback } from "react";
 import type { NutritionLog } from "@/types";
 import { Card, Button, Input, useToast } from "@/components/ui";
@@ -122,12 +122,13 @@ export default function NutritionPage() {
   }, []);
 
   async function recomputeFromEntries(allEntries: FoodEntry[]) {
+    // num() coerces PG numeric strings — JS "+" would otherwise concatenate.
     const totals = allEntries.reduce(
       (acc, e) => ({
-        cal: acc.cal + e.calories,
-        p: acc.p + e.protein,
-        c: acc.c + e.carbs,
-        f: acc.f + e.fat,
+        cal: acc.cal + num(e.calories),
+        p: acc.p + num(e.protein),
+        c: acc.c + num(e.carbs),
+        f: acc.f + num(e.fat),
       }),
       { cal: 0, p: 0, c: 0, f: 0 }
     );

@@ -14,6 +14,7 @@ import {
   dayNameHe,
   streakOf,
   workoutStreak as calcWorkoutStreak,
+  num,
 } from "@/lib/calculations";
 import { getTodaySchedule, getNextWorkout } from "@/lib/exercises";
 import { useState, useEffect } from "react";
@@ -84,15 +85,17 @@ export default function DashboardPage() {
   const latestWeight = allWeights[0] ?? null;
   // Use the user's earliest recorded weight as their "start" — this matches
   // their reality, not the literal 96.8 baked in at build time.
+  // num() coerces PG numeric strings ("85.00") to JS numbers.
   const startWeight = allWeights.length > 0
-    ? allWeights[allWeights.length - 1].weight_kg
-    : (latestWeight?.weight_kg ?? targetWeight);
+    ? num(allWeights[allWeights.length - 1].weight_kg)
+    : (latestWeight ? num(latestWeight.weight_kg) : targetWeight);
+  const latestWeightNum = latestWeight ? num(latestWeight.weight_kg) : null;
   const isNewUser = loaded && allWeights.length === 0 && !todayNutrition && !todayWorkout;
   const noWeightToday = loaded && latestWeight !== null && latestWeight.date !== todayISO();
   const todaySchedule = getTodaySchedule();
   const nextWorkout = getNextWorkout();
   const daysLeft = daysRemaining(targetDate);
-  const progress = latestWeight ? progressPercent(startWeight, latestWeight.weight_kg, targetWeight) : 0;
+  const progress = latestWeightNum !== null ? progressPercent(startWeight, latestWeightNum, targetWeight) : 0;
   const isWorkoutDay = isWorkoutDayByDate(todayISO());
   const protein = todayNutrition?.protein_g ?? 0;
   const calories = todayNutrition?.calories ?? 0;
@@ -120,7 +123,7 @@ export default function DashboardPage() {
       <div className="space-y-4">
         <HeroProgress
           progress={progress}
-          latest={latestWeight?.weight_kg ?? null}
+          latest={latestWeightNum}
           target={targetWeight}
           start={startWeight}
           daysLeft={daysLeft}

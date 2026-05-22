@@ -3,7 +3,7 @@
 import PageWrapper from "@/components/layout/PageWrapper";
 import { S } from "@/lib/strings";
 import { createClient } from "@/lib/supabase/client";
-import { movingAverage, formatDateShort } from "@/lib/calculations";
+import { movingAverage, formatDateShort, num } from "@/lib/calculations";
 import { useState, useEffect } from "react";
 import type { DailyWeight, NutritionLog, Workout } from "@/types";
 import {
@@ -49,13 +49,13 @@ export default function StatsPage() {
   const weightAvg = movingAverage(weights.map((w) => w.weight_kg), 7);
   const weightChartData = weights.map((w, i) => ({
     date: formatDateShort(w.date),
-    weight: w.weight_kg,
+    weight: num(w.weight_kg),
     avg: weightAvg[i],
   }));
 
   const proteinChartData = nutrition.map((n) => ({
     date: formatDateShort(n.date),
-    protein: n.protein_g ?? 0,
+    protein: num(n.protein_g),
   }));
 
   const stepsChartData = nutrition
@@ -68,10 +68,10 @@ export default function StatsPage() {
   const completedWorkouts = workouts.filter((w) => w.completed).length;
   const avgProtein =
     nutrition.length > 0
-      ? Math.round(nutrition.reduce((s, n) => s + (n.protein_g ?? 0), 0) / nutrition.length)
+      ? Math.round(nutrition.reduce((s, n) => s + num(n.protein_g), 0) / nutrition.length)
       : 0;
   const avgWeight = weights.length > 0
-    ? (weights.reduce((s, w) => s + w.weight_kg, 0) / weights.length).toFixed(1)
+    ? (weights.reduce((s, w) => s + num(w.weight_kg), 0) / weights.length).toFixed(1)
     : "—";
 
   if (weights.length === 0 && nutrition.length === 0 && workouts.length === 0) {

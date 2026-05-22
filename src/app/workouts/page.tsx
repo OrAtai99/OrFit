@@ -3,7 +3,7 @@
 import PageWrapper from "@/components/layout/PageWrapper";
 import { S } from "@/lib/strings";
 import { createClient } from "@/lib/supabase/client";
-import { todayISO, dayNameHe, formatDate, workoutVolume } from "@/lib/calculations";
+import { todayISO, dayNameHe, formatDate, workoutVolume, num } from "@/lib/calculations";
 import { WEEKLY_SCHEDULE, getTemplateForType } from "@/lib/exercises";
 import { useState, useEffect, useCallback } from "react";
 import type { Workout, WorkoutSet, WorkoutType } from "@/types";
@@ -90,7 +90,7 @@ export default function WorkoutsPage() {
           if (!isSeconds && !isReps && lastSet) {
             const targetReps = 12;
             const hitTarget = (lastSet.reps ?? 0) >= targetReps;
-            const lastWeight = lastSet.weight_kg ?? value;
+            const lastWeight = lastSet.weight_kg != null ? num(lastSet.weight_kg) : value;
             weight = hitTarget ? lastWeight + 2.5 : lastWeight;
           }
           let durationSeconds: number | null = isSeconds ? value : null;
@@ -453,7 +453,8 @@ function SetRow({
   onUpdate: (id: string, field: "weight_kg" | "reps" | "duration_seconds", v: number | null) => void;
 }) {
   const isDuration = set.duration_seconds !== null;
-  const isBodyweight = !isDuration && (set.weight_kg === null || set.weight_kg === 0);
+  // weight_kg might be a PG numeric string ("0.00"); coerce before comparing.
+  const isBodyweight = !isDuration && (set.weight_kg === null || num(set.weight_kg) === 0);
 
   return (
     <div className="flex gap-2 items-center">
@@ -595,9 +596,9 @@ function DetailView({
                     <span className="font-medium">
                       {s.duration_seconds !== null
                         ? `${s.duration_seconds} ${S.workouts.seconds}`
-                        : s.weight_kg === null || s.weight_kg === 0
+                        : s.weight_kg === null || num(s.weight_kg) === 0
                         ? `${s.reps ?? 0} ${S.workouts.reps}`
-                        : `${s.weight_kg} ${S.weight.kg} × ${s.reps ?? 0}`}
+                        : `${num(s.weight_kg)} ${S.weight.kg} × ${s.reps ?? 0}`}
                     </span>
                   </div>
                 ))}

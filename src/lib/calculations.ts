@@ -1,7 +1,18 @@
-export function movingAverage(data: (number | null)[], window: number): (number | null)[] {
-  return data.map((_, i) => {
+/** Coerce PostgREST numeric strings ("85.00") to JS numbers safely. */
+export function num(v: unknown, fallback = 0): number {
+  if (v === null || v === undefined || v === "") return fallback;
+  const n = typeof v === "string" ? parseFloat(v) : (v as number);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+export function movingAverage(
+  data: (number | string | null)[],
+  window: number
+): (number | null)[] {
+  const nums = data.map((v) => (v === null || v === undefined ? null : num(v, NaN)));
+  return nums.map((_, i) => {
     const start = Math.max(0, i - window + 1);
-    const slice = data.slice(start, i + 1).filter((v) => v !== null) as number[];
+    const slice = nums.slice(start, i + 1).filter((v): v is number => v !== null && Number.isFinite(v));
     if (slice.length === 0) return null;
     return Math.round((slice.reduce((a, b) => a + b, 0) / slice.length) * 10) / 10;
   });
@@ -83,7 +94,9 @@ export function weighingStreak(dates: string[]): number {
   return streak;
 }
 
-export function weeklyWeightDelta(entries: { date: string; weight_kg: number }[]): number | null {
+export function weeklyWeightDelta(
+  entries: { date: string; weight_kg: number | string }[]
+): number | null {
   if (entries.length < 2) return null;
   const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
   const latest = sorted[sorted.length - 1];
@@ -92,11 +105,11 @@ export function weeklyWeightDelta(entries: { date: string; weight_kg: number }[]
   const weekAgoIso = weekAgo.toISOString().slice(0, 10);
   const earlier = sorted.find((e) => e.date >= weekAgoIso);
   if (!earlier || earlier === latest) return null;
-  return Math.round((latest.weight_kg - earlier.weight_kg) * 10) / 10;
+  return Math.round((num(latest.weight_kg) - num(earlier.weight_kg)) * 10) / 10;
 }
 
 export function predictedDaysToGoal(
-  entries: { date: string; weight_kg: number }[],
+  entries: { date: string; weight_kg: number | string }[],
   targetKg: number
 ): number | null {
   if (entries.length < 7) return null;
@@ -107,15 +120,17 @@ export function predictedDaysToGoal(
   const daysSpan =
     (new Date(last.date).getTime() - new Date(first.date).getTime()) / 86400000;
   if (daysSpan <= 0) return null;
-  const dailyLoss = (first.weight_kg - last.weight_kg) / daysSpan;
+  const dailyLoss = (num(first.weight_kg) - num(last.weight_kg)) / daysSpan;
   if (dailyLoss <= 0) return null;
-  const remaining = last.weight_kg - targetKg;
+  const remaining = num(last.weight_kg) - targetKg;
   if (remaining <= 0) return 0;
   return Math.ceil(remaining / dailyLoss);
 }
 
-export function workoutVolume(sets: { weight_kg: number | null; reps: number | null }[]): number {
-  return sets.reduce((sum, s) => sum + (s.weight_kg ?? 0) * (s.reps ?? 0), 0);
+export function workoutVolume(
+  sets: { weight_kg: number | string | null; reps: number | null }[]
+): number {
+  return sets.reduce((sum, s) => sum + num(s.weight_kg) * (s.reps ?? 0), 0);
 }
 
 export function streakOf(

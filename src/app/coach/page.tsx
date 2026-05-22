@@ -3,7 +3,7 @@
 import PageWrapper from "@/components/layout/PageWrapper";
 import { Button, Card, EmptyState } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
-import { todayISO, isWorkoutDayByDate } from "@/lib/calculations";
+import { todayISO, isWorkoutDayByDate, num } from "@/lib/calculations";
 import { getTodaySchedule } from "@/lib/exercises";
 import { useState, useEffect, useRef } from "react";
 import { Send, Sparkles, MessageCircle, RotateCcw } from "lucide-react";
@@ -73,10 +73,10 @@ export default function CoachPage() {
 
       // Recent weights
       if (weights.length > 0) {
-        const recent = weights.map((w) => `${w.date.slice(5)}=${w.weight_kg}ק"ג`).join(", ");
+        const recent = weights.map((w) => `${w.date.slice(5)}=${num(w.weight_kg)}ק"ג`).join(", ");
         parts.push(`שקילות אחרונות: ${recent}`);
         if (weights.length >= 2) {
-          const delta = Math.round((weights[0].weight_kg - weights[weights.length - 1].weight_kg) * 10) / 10;
+          const delta = Math.round((num(weights[0].weight_kg) - num(weights[weights.length - 1].weight_kg)) * 10) / 10;
           parts.push(`שינוי ב-${weights.length} שקילות אחרונות: ${delta > 0 ? "+" : ""}${delta}ק"ג`);
         }
       }
@@ -94,7 +94,7 @@ export default function CoachPage() {
       const valid = nutritionList.filter((n) => n.calories !== null);
       if (valid.length >= 3) {
         const avg = (key: keyof NutritionLog) =>
-          Math.round(valid.reduce((s, n) => s + ((n[key] as number) ?? 0), 0) / valid.length);
+          Math.round(valid.reduce((s, n) => s + num(n[key]), 0) / valid.length);
         parts.push(
           `ממוצע 7 ימים: ${avg("calories")} קק"ל / ${avg("protein_g")}g חלבון / ${avg("steps")} צעדים`
         );
@@ -107,9 +107,9 @@ export default function CoachPage() {
           .slice(0, 3)
           .map((w) => {
             const heaviest = w.workout_sets
-              .filter((s) => s.weight_kg)
-              .sort((a, b) => (b.weight_kg ?? 0) - (a.weight_kg ?? 0))[0];
-            return `${w.date.slice(5)} ${w.type}${heaviest ? ` (כבד ביותר: ${heaviest.exercise_name} ${heaviest.weight_kg}ק"ג×${heaviest.reps ?? "?"})` : ""}`;
+              .filter((s) => num(s.weight_kg) > 0)
+              .sort((a, b) => num(b.weight_kg) - num(a.weight_kg))[0];
+            return `${w.date.slice(5)} ${w.type}${heaviest ? ` (כבד ביותר: ${heaviest.exercise_name} ${num(heaviest.weight_kg)}ק"ג×${heaviest.reps ?? "?"})` : ""}`;
           })
           .join(" | ");
         parts.push(`אימונים אחרונים: ${summary}`);
